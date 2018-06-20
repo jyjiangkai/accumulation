@@ -1,8 +1,8 @@
 ##C++常用延时操作函数
 
 ####延时函数
+#####在linux下延时可以采用如下函数：
 #include <unistd.h>
-在linux下延时可以采用如下函数：
 1、unsigned int sleep(unsigned int seconds);
 sleep()会使当前程序休眠seconds秒。如果sleep()没睡饱，它将会返回还需要补眠的时间，否则一般返回零。
 2、void usleep(unsigned long usec);
@@ -13,6 +13,10 @@ timedelay.tv_sec = 0;
 timedelay.tv_nesc = 1000*1000;  //延时1s
 使用方式：
 (void)nanosleep(&timedelay, &timerem);
+#####在windows下延时可以采用如下函数：
+#include <iostream>
+using namespace std;
+_sleep(5*1000)；//延时5秒 
 
 ####获取系统时间
 gettimeofday()
