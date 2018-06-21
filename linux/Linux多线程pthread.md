@@ -261,7 +261,32 @@ increment_count()
 count 值为0时， decrement函数在pthread_cond_wait处被阻塞，并打开互斥锁count_lock。此时，当调用到函数 increment_count时，pthread_cond_signal()函数改变条件变量，告知decrement_count()停止阻塞。
 
 
+互斥是两个线程之间不可以同时运行，他们会相互排斥，必须等待一个线程运行完毕，另一个才能运行，而同步也是不能同时运行，但他是必须要安照某种次序来运行相应的线程(也是一种互斥)。
+【总结】
+互斥：是指某一资源同时只允许一个访问者对其进行访问，具有唯一性和排它性。但互斥无法限制访问者对资源的访问顺序，即访问是无序的。
+同步：是指在互斥的基础上（大多数情况），通过其它机制实现访问者对资源的有序访问。在大多数情况下，同步已经实现了互斥，特别是所有写入资源的情况必定是互斥的。少数情况是指可以允许多个访问者同时访问资源。
 
+读写锁特点：
+1）多个读者可以同时进行读  
+2）写者必须互斥（只允许一个写者写，也不能读者写者同时进行）  
+3）写者优先于读者（一旦有写者，则后续读者必须等待，唤醒时优先考虑写者）  
+
+互斥锁特点：  
+一次只能一个线程拥有互斥锁，其他线程只有等待  
+
+互斥锁
+pthread_mutex_init()  
+pthread_mutex_lock()  
+pthread_mutex_unlock()  
+读写锁
+pthread_rwlock_init()  
+pthread_rwlock_rdlock()  
+pthread_rwlock_wrlock()  
+pthread_rwlock_unlock()  
+条件变量
+pthread_cond_init()  
+pthread_cond_wait()  
+pthread_cond_signal()  
 
 
 #include <stdio.h>  
