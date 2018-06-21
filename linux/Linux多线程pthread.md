@@ -167,7 +167,45 @@ pthread_t pthread_self(void);
 
 ####线程数据
 在单线程的程序里，有两种基本的数据：全局变量和局部变量。但在多线程程序里，还有第三种数据类型：线程数据(TSD: Thread-Specific Data)。它和全局变量很象，在线程内部，各个函数可以象使用全局变量一样调用它，但它对线程外部的其它线程是不可见的。例如我们常见的变量errno，它返回标准的出错信息。它显然不能是一个局部变量，几乎每个函数都应该可以调用它；但它又不能是一个全局变量，否则在A线程里输出的很可能是B线程的出错信息。要实现诸如此类的变量，我们就必须使用线程数据。我们为每个线程数据创建一个键，它和这个键相关联，在各个线程里，都使用这个键来指代线程数据，但在不同的线程里，这个键代表的数据是不同的，在同一个线程里，它代表同样的数据内容。
+
 和线程数据相关的函数主要有4个：创建一个键；为一个键指定线程数据；从一个键读取线程数据；删除键。
+创建键的函数原型为：
+int pthread_key_create(pthread_key_t*__key, void (*__destr_function)(void*));
+第一个参数为指向一个键值的指针，第二个参数指明了一个destructor函数，如果这个参数不为空，那么当每个线程结束时，系统将调用这个函数来释放绑定在这个键上的内存块。这个函数常和函数pthread_once(pthread_once_t*once_control, void (*initroutine) (void))一起使用，为了让这个键只被创建一次。函数pthread_once声明一个初始化函数，第一次调用pthread_once时它执行这个函数，以后的调用将被它忽略。
+int pthread_key_delete(pthread_key_t *key);
+该函数用于删除一个由pthread_key_create函数调用创建的键。调用成功返回值为0，否则返回错误代码。
+在下面的例子中，我们创建一个键，并将它和某个数据相关联。我们要定义一个函数 createWindow，这个函数定义一个图形窗口（数据类型为Fl_Window *，这是图形界面开发工具FLTK中的数据类型）。由于各个线程都会调用这个函数，所以我们使用线程数据。
+/* 声明一个键*/
+pthread_key_t myWinKey;
+/* 函数 createWindow */
+void createWindow ( void ) {
+Fl_Window * win;
+static pthread_once_t once= PTHREAD_ONCE_INIT;
+/* 调用函数createMyKey，创建键*/
+pthread_once ( & once, createMyKey) ;
+/*win指向一个新建立的窗口*/
+win=new Fl_Window( 0, 0, 100, 100, "MyWindow");
+/* 对此窗口作一些可能的设置工作，如大小、位置、名称等*/
+setWindow(win);
+/* 将窗口指针值绑定在键myWinKey上*/
+pthread_setpecific ( myWinKey, win);
+}
+/* 函数 createMyKey，创建一个键，并指定了destructor */
+void createMyKey ( void ) {
+pthread_keycreate(&myWinKey, freeWinKey);
+}
+/* 函数 freeWinKey，释放空间*/
+void freeWinKey ( Fl_Window * win){
+delete win;
+}
+这样，在不同的线程中调用函数createMyWin，都可以得到在线程内部均可见的窗口变量，这个变量通过函数 pthread_getspecific得到。在上面的例子中，我们已经使用了函数pthread_setspecific来将线程数据和一个键绑定在一起。这两个函数的原型如下：
+　　
+int pthread_setspecific __P ((pthread_key_t __key,__const void *__pointer)); 该函数设置一个线程专有数据的值，赋给由pthread_key_create 创建的键，调用成功返回值为0，否则返回错误代码。
+void *pthread_getspecific __P ((pthread_key_t __key));                                                  该函数获得绑定到指定键上的值。调用成功，返回给定参数key 所对应的数据。如果没有数据连接到该键，则返回NULL。
+
+　　这两个函数的参数意义和使用方法是显而易见的。要注意的是，用pthread_setspecific为一个键指定新的线程数据时，必须自己释放原有的线程数据以回收空间。这个过程函数pthread_key_delete用来删除一个键，这个键占用的内存将被释放，但同样要注意的是，它只释放键占用的内存，并不释放该键关联的线程数据所占用的内存资源，而且它也不会触发函数pthread_key_create中定义的destructor函数。线程数据的释放必须在释放键之前完成。
+
+注意：pthread_setspecfic和pthread_getspecfic要成对出现，不然一个set的值，第一个get取的值是正确的，第二个就不正确的，如果要2个get就需要2个set,才能取到对应的值。
 
 ####互斥锁
 假设各个线程向同一个文件顺序写入数据，最后得到的结果是不可想象的。所以用互斥锁来保证一段时间内只有一个线程在执行一段代码。
@@ -405,5 +443,71 @@ int main()
                 (unsigned int)pthread_self());  
     print_ids("main thread:");  
     sleep(1);  
+    return 0;  
+}  
+
+
+#include <stdio.h>  
+#include <pthread.h>  
+#include <unistd.h>  
+  
+pthread_key_t key; //声明参数key  
+  
+void echomsg(void *arg) //析构处理函数  
+{  
+    printf("destruct executed in thread = %u, arg = %p\n",   
+                (unsigned int)pthread_self(),  
+                arg);     
+}  
+  
+void *child_1(void *arg)  
+{  
+    pthread_t tid;  
+     
+    tid = pthread_self();  
+    printf("%s: thread %u enter\n", (char *)arg, (unsigned int)tid);  
+      
+    pthread_setspecific(key, (void *)tid);  // 与key值绑定的value(tid)  
+    printf("%s: thread %u returns %p\n",    // %p 表示输出指针格式   
+                (char *)arg,  
+                (unsigned int)tid,   
+                pthread_getspecific(key));  // 获取key值的value  
+    sleep(1);  
+    return NULL;  
+}  
+  
+void *child_2(void *arg)  
+{  
+    pthread_t tid;  
+
+    tid = pthread_self();  
+    printf("%s: thread %u enter\n", (char *)arg, (unsigned int)tid);  
+
+    pthread_setspecific(key, (void *)tid);  
+    printf("%s: thread %u returns %p\n",   
+                (char *)arg,  
+                (unsigned int)tid,   
+                pthread_getspecific(key));  
+    sleep(1);  
+    return NULL;  
+}  
+  
+//******* 主函数 *******//  
+int main(void)  
+{  
+    pthread_t tid1, tid2;  
+      
+    printf("hello main\n");  
+      
+    pthread_key_create(&key, echomsg); //创建key  
+      
+    pthread_create(&tid1, NULL, child_1, (void *)"child_1"); //创建带参数的线程，需要强制转换  
+    pthread_create(&tid2, NULL, child_2, (void *)"child_1");  
+  
+    sleep(3);  
+    pthread_key_delete(key); //清除key  
+    printf("bye main\n");  
+      
+    pthread_exit(0);  
     return 0;  
 }  
