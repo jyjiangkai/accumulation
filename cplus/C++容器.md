@@ -47,15 +47,20 @@ vector容器支持随机访问，因此为了提高效率，它内部使用动�
 
 ###vector查找某元素是否存在
 方法一：
+#include <algorithm>
+//C++的标准模版库（STL）中最重要的头文件之一，提供了大量基于迭代器的非成员模版函数。
 vector<string> v;
 int nRet = std::count(v.begin(), v.end(), "xiaochun");    //判断vector中是否有"xiaochun"这个元素
 方法二：
+#include <algorithm>
+//C++的标准模版库（STL）中最重要的头文件之一，提供了大量基于迭代器的非成员模版函数。
 vector<string> vec;
 vector<string>::iterator iter;
 iter = find(vec.begin(), vec.end(), "SZ000001");
 if(iter != vec.end())
 {
-	//vec中存在"SZ000001"
+    //vec中存在"SZ000001"
+    cout<<(*iter)<<endl;
 }
 
 ###vector的四种遍历方式
@@ -164,7 +169,7 @@ operator: == != < <= > >=
 ##Queue
 boost::lockfree::queue<int, boost::lockfree::fixed_sized<false>, boost::lockfree::capacity<10000>> m_queue;    //boost库无锁队列的定义
 m_queue.push(<int>);	//入队
-m_queue.pop(<int>);		//出队
+m_queue.pop(<int>);	//出队
 front();				//返回第一个元素
 back();					//返回最后一个元素
 empty();				//如果队列为空则返回true
