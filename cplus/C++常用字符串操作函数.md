@@ -55,12 +55,19 @@ c_str()函数返回一个指向正规C字符串的指针常量, 内容与本stri
 size_type find(const char *str, size_type index, size_type length);
 返回str在字符串中第一次出现的位置（从index开始查找，长度为length）。如果没找到就返回string::npos。
 示例：
-string str = "Alpha Beta Gamma Delta";
-unsigned int loc = str1.find("Omega", 0, str.length());
+string str = "abcdefg";
+unsigned int loc = str.find("abc", 0, str.length());
 if( loc != string::npos )
-    cout << "Found Omega at " << loc << endl;
+    cout << "Found abc at" << loc << endl;
 else
-    cout << "Didn't find Omega" << endl;
+    cout << "Didn't find abc" << endl;
+    
+str.find("abcde", 2, 3);
+//取abcde得前3个字符(abc)参与匹配，相当于str.find("abc", 2);
+str.find("abcde", 0, 5) << endl;
+//str.find("abcde", 0)
+str.find("abcde", 0, 6) << endl;
+//第3个参数超出第1个参数的长度时，返回string::npos
 
 ######strnlen
 strnlen比strlen多一个参数，就是数据总体长度，当检测到字符串长度比数据总体长度还长（就是给定数据长度范围内没有结束符'\0'）时就会终止扫描。strnlen这个函数一般用于检测不可信的数据（如网络数据），因为这种数据中可能没有'\0'，这时如果用strlen的话会一直扫描无法停止（直到越界触碰到无效内存），而strnlen限制住了扫描范围所以不会出事。
