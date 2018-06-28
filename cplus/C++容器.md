@@ -62,6 +62,37 @@ if(iter != vec.end())
     //vec中存在"SZ000001"
     cout<<(*iter)<<endl;
 }
+注意：
+如果vector中保存的是自定义类型(结构体/类)，则需要为该类型重载==操作符，再用find。
+结构体中重载操作符实例：
+struct point  
+{  
+    int elem;  
+    bool operator==(const point b) const  //重载“==”操作符，函数最后的const别忘了，否则会报错。
+    {  
+        return this->elem == b.elem;  
+    }  
+    bool operator!=(const point b) const  
+    {  
+        return this->elem != b.elem;  
+    }  
+    bool operator<=(const point b) const  
+    {  
+        return this->elem <= b.elem;  
+    }  
+    bool operator<(const point b) const  
+    {  
+        return this->elem < b.elem;  
+    }  
+    bool operator>=(const point b) const  
+    {  
+        return this->elem >= b.elem;  
+    }  
+    bool operator>(const point b) const  
+    {  
+        return this->elem > b.elem;  
+    }  
+}now; 
 
 ###vector的四种遍历方式
 遍历方式1，采用迭代器
