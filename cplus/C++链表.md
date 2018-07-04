@@ -1,4 +1,4 @@
-##链表
+##C++链表
 #include <iostream>
 #include "show.hpp"
 #include <unistd.h>
