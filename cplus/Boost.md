@@ -228,7 +228,7 @@ int main()
 
 bool compare(int i, int j) 
 {
-    return i > j;
+    return i > j;//将容器中的数据降序排列，若修改为i<j，则为升序排列
 }
 
 int main() 
@@ -238,33 +238,30 @@ int main()
     v.push_back(3); 
     v.push_back(2); 
 
-  std::sort(v.begin(), v.end(), boost::bind(compare, _1, _2)); 
-} 
-下载源代码
-因为使用了两个占位符 _1 和 _2，所以 boost::bind() 定义了一个二元函数。 std::sort() 算法以容器 v 的两个元素来调用该函数，并根据返回值来对容器进行排序。 基于 compare() 函数的定义，容器将被按降序排列。
+    std::sort(v.begin(), v.end(), boost::bind(compare, _1, _2)); 
+}
+因为使用了两个占位符_1和_2，所以boost::bind()定义了一个二元函数。std::sort()算法以容器v的两个元素来调用该函数，并根据返回值来对容器进行排序。基于compare()函数的定义，容器将被按降序排列。
 
-但是，由于 compare() 本身就是一个二元函数，所以使用 boost::bind() 确是多余的。
-
+但是，由于compare()本身就是一个二元函数，所以使用boost::bind()确是多余的。
 #include <boost/bind.hpp> 
 #include <vector> 
 #include <algorithm> 
 
 bool compare(int i, int j) 
 { 
-  return i > j; 
+    return i > j; 
 } 
 
 int main() 
 { 
-  std::vector<int> v; 
-  v.push_back(1); 
-  v.push_back(3); 
-  v.push_back(2); 
+    std::vector<int> v; 
+    v.push_back(1); 
+    v.push_back(3); 
+    v.push_back(2); 
 
-  std::sort(v.begin(), v.end(), compare); 
-} 
-下载源代码
-不过使用 boost::bind() 还是有意义的。例如，如果容器要按升序排列而又不能修改 compare() 函数的定义。
+    std::sort(v.begin(), v.end(), compare); 
+}
+不过使用boost::bind()还是有意义的。例如，如果容器要按升序排列而又不能修改compare()函数的定义。
 
 #include <boost/bind.hpp> 
 #include <vector> 
@@ -283,9 +280,177 @@ int main()
   v.push_back(2); 
 
   std::sort(v.begin(), v.end(), boost::bind(compare, _2, _1)); 
+}
+该例子仅改变了占位符的顺序：_2被作为第一参数传递，而_1则被作为第二参数传递至compare()，这样即可改变排序的顺序。
+
+####Boost.Ref
+本库Boost.Ref通常与Boost.Bind一起使用，所以我把它们挨着写。它提供了两个函数boost::ref()和boost::cref()，定义于boost/ref.hpp。
+
+当要用于boost::bind()的函数带有至少一个引用参数时，Boost.Ref就很重要了。由于boost::bind()会复制它的参数，所以引用必须特别处理。
+
+#include <boost/bind.hpp> 
+#include <iostream> 
+#include <vector> 
+#include <algorithm> 
+
+void add(int i, int j, std::ostream &os) 
+{ 
+    os << i + j << std::endl; 
+} 
+
+int main() 
+{ 
+    std::vector<int> v; 
+    v.push_back(1); 
+    v.push_back(3); 
+    v.push_back(2); 
+
+    std::for_each(v.begin(), v.end(), boost::bind(add, 10, _1, boost::ref(std::cout))); 
+}
+以上例子使用了上一节中的add()函数。不过这一次该函数需要一个流对象的引用来打印信息。因为传给boost::bind()的参数是以值方式传递的，所以std::cout不能直接使用，否则该函数会试图创建它的一份拷贝。
+
+通过使用模板函数boost::ref()，像std::cout这样的流就可以被以引用方式传递，也就可以成功编译上面这个例子了。
+
+要以引用方式传递常量对象，可以使用模板函数boost::cref()。
+
+####Boost.Function
+为了封装函数指针，Boost.Function提供了一个名为boost::function的类。它定义于boost/function.hpp，用法如下：
+
+#include <boost/function.hpp> 
+#include <iostream> 
+#include <cstdlib> 
+#include <cstring> 
+
+int main() 
+{ 
+    boost::function<int (const char*)> f = std::atoi; 
+    std::cout << f("1609") << std::endl; 
+    f = std::strlen; 
+    std::cout << f("1609") << std::endl; 
+}
+boost::function可以定义一个指针，指向具有特定签名的函数。以上例子定义了一个指针f，它可以指向某个接受一个类型为const char*的参数且返回一个类型为int的值的函数。定义完成后，匹配此签名的函数均可赋值给这个指针。
+这个例程就是先将std::atoi()赋值给f，然后再将它重赋值为std::strlen()。
+
+注意，给定的数据类型并不需要精确匹配：虽然std::strlen()是以std::size_t作为返回类型的，但是它也可以被赋值给f。
+
+因为f是一个函数指针，所以被赋值的函数可以通过重载的operator()()操作符来调用。取决于当前被赋值的是哪一个函数，在以上例子中将调用std::atoi()或std::strlen()。
+
+如果f未赋予一个函数而被调用，则会抛出一个boost::bad_function_call异常。
+
+#include <boost/function.hpp> 
+#include <iostream> 
+
+int main() 
+{ 
+  try 
+  { 
+    boost::function<int (const char*)> f; 
+    f(""); 
+  } 
+  catch (boost::bad_function_call &ex) 
+  { 
+    std::cout << ex.what() << std::endl; 
+  } 
+}
+注意，将值0赋给一个boost::function类型的函数指针，将会释放当前所赋的函数。释放之后再调用它也会导致boost::bad_function_call异常被抛出。要检查一个函数指针是否被赋值某个函数，可以使用empty()函数或operator bool()操作符。
+
+通过使用Boost.Function，类成员函数也可以被赋值给类型为boost::function的对象。
+
+#include <boost/function.hpp> 
+#include <iostream> 
+
+struct world 
+{ 
+  void hello(std::ostream &os) 
+  { 
+    os << "Hello, world!" << std::endl; 
+  } 
+}; 
+
+int main() 
+{ 
+  boost::function<void (world*, std::ostream&)> f = &world::hello; 
+  world w; 
+  f(&w, boost::ref(std::cout)); 
+}
+在调用这样的一个函数时，传入的第一个参数表示了该函数被调用的那个特定对象。因此，在模板定义中的左括号后的第一个参数必须是该特定类的指针。 接下来的参数才是表示相应的成员函数的签名。
+
+这个程序还使用了来自Boost.Ref库的boost::ref()，它提供了一个方便的机制向Boost.Function传递引用。
+
+####Boost.Lambda
+匿名函数，又称为lambda函数。已经在多种编程语言中存在，但C++除外。不过在Boost.Lambda库的帮助下，现在在C++应用中也可以使用它们了。
+
+lambda函数的目标是令源代码更为紧凑，从而也更容易理解。以本章第一节中的代码例子为例。
+
+#include <iostream> 
+#include <vector> 
+#include <algorithm> 
+
+void print(int i) 
+{ 
+  std::cout << i << std::endl; 
+} 
+
+int main() 
+{ 
+  std::vector<int> v; 
+  v.push_back(1); 
+  v.push_back(3); 
+  v.push_back(2); 
+
+  std::for_each(v.begin(), v.end(), print); 
+}
+这段程序接受容器v中的元素并使用print()函数将它们写出到标准输出流。由于print()只是写出一个简单的int，所以该函数的实现相当简单。严格来说，它是如此地简单，以致于如果可以在std::for_each()算法里面直接定义它的话，会更为方便；从而省去增加一个函数的需要。另外一个好处是代码更为紧凑，使得算法与负责数据输出的函数不是局部性分离的。Boost.Lambda正好使之成为现实。
+
+#include <boost/lambda/lambda.hpp> 
+#include <iostream> 
+#include <vector> 
+#include <algorithm> 
+
+int main() 
+{ 
+    std::vector<int> v; 
+    v.push_back(1); 
+    v.push_back(3); 
+    v.push_back(2); 
+
+    std::for_each(v.begin(), v.end(), std::cout << boost::lambda::_1 << "\n"); 
+}
+Boost.Lambda提供了几个结构来定义匿名函数。代码就被置于执行的地方，从而省去将它包装为一个函数再进行相应的函数调用的这些开销。与原来的例子一样，这个程序将容器v的所有元素写出至标准输出流。
+
+与Boost.Bind相类似，Boost.Lambda也定义了三个占位符，名为_1,_2和_3。但与Boost.Bind不同的是，这些占位符是定义在单独的名字空间的。因此，该例中的第一个占位符是通过boost::lambda::_1来引用的。为了满足编译器的要求，必须包含相应的头文件boost/lambda/lambda.hpp。
+
+虽然代码的位置位于std::for_each()的第三个参数处，看起来很怪异，但boost.Lambda可以写出正常的C++代码。通过使用占位符，容器v的元素可以通过<<传给std::cout以将它们写出到标准输出流。
+
+虽然 Boost.Lambda 非常强大，但也有一些缺点。 要在以上例子中插入换行的话，必须用 "\n" 来替代 std::endl 才能成功编译。 因为一元 std::endl 模板函数所要求的类型不同于 lambda 函数 std::cout << boost::lambda::_1 的函数，所以在此不能使用它。
+
+下一个版本的 C++ 标准很可能会将 lambda 函数作为 C++ 语言本身的组成部分加入，从而消除对单独的库的需要。 但是在下一个版本到来并被不同的编译器厂商所采用可能还需要好几年。 在此之前，Boost.Lambda 被证明是一个完美的替代品，从以下例子可以看出，这个例子只将大于1的元素写出到标准输出流。
+
+#include <boost/lambda/lambda.hpp> 
+#include <boost/lambda/if.hpp> 
+#include <iostream> 
+#include <vector> 
+#include <algorithm> 
+
+int main() 
+{ 
+  std::vector<int> v; 
+  v.push_back(1); 
+  v.push_back(3); 
+  v.push_back(2); 
+
+  std::for_each(v.begin(), v.end(), 
+    boost::lambda::if_then(boost::lambda::_1 > 1, 
+    std::cout << boost::lambda::_1 << "\n")); 
 } 
 下载源代码
-该例子仅改变了占位符的顺序：_2 被作为第一参数传递，而 _1 则被作为第二参数传递至 compare()，这样即可改变排序的顺序。
+头文件 boost/lambda/if.hpp 定义了几个结构，允许在 lambda 函数内部使用 if 语句。 最基本的结构是 boost::lambda::if_then() 模板函数，它要求两个参数：第一个参数对条件求值 - 如果为真，则执行第二个参数。 如例中所示，每个参数本身都可以是 lambda 函数。
+
+除了 boost::lambda::if_then(), Boost.Lambda 还提供了 boost::lambda::if_then_else() 和 boost::lambda::if_then_else_return() 模板函数 - 它们都要求三个参数。 另外还提供了用于实现循环、转型操作符，甚至是 throw - 允许 lambda 函数抛出异常 - 的模板函数。
+
+虽然可以用这些模板函数在 C++ 中构造出复杂的 lambda 函数，但是你必须要考虑其它方面，如可读性和可维护性。 因为别人需要学习并理解额外的函数，如用 boost::lambda::if_then() 来替代已知的 C++ 关键字 if 和 else，lambda 函数的好处通常随着它的复杂性而降低。 多数情况下，更为合理的方法是用熟悉的 C++ 结构定义一个单独的函数。
+
+
 
 
 
