@@ -11,13 +11,12 @@
 ###智能指针
 
 ####概述
-第一版C++标准只提供了一种智能指针：std::auto_ptr。它基本上就像是个普通的指针：通过地址来访问一个动态分配的对象。std::auto_ptr 之所以被看作是智能指针，是因为它会在析构的时候调用delete操作符来自动释放所包含的对象。当然这要求在初始化的时候，传给它一个由new 操作符返回的对象的地址。
+第一版C++标准只提供了一种智能指针：std::auto_ptr。它基本上就像是个普通的指针：通过地址来访问一个动态分配的对象。std::auto_ptr之所以被看作是智能指针，是因为它会在析构的时候调用delete操作符来自动释放所包含的对象。当然这要求在初始化的时候，传给它一个由new 操作符返回的对象的地址。
 
 ####RAII
 
-####作用域指针
-一个作用域指针独占一个动态分配的对象。 对应的类名为 boost::scoped_ptr，它的定义在 boost/scoped_ptr.hpp 中。 不像 std::auto_ptr，一个作用域指针不能传递它所包含的对象的所有权到另一个作用域指针。一旦用一个地址来初始化，这个动态分配的对象将在析构阶段释放。
-因为一个作用域指针只是简单保存和独占一个内存地址，所以boost::scoped_ptr的实现就要比std::auto_ptr简单。 在不需要所有权传递的时候应该优先使用boost::scoped_ptr。在这些情况下，比起std::auto_ptr它是一个更好的选择，因为可以避免不经意间的所有权传递。
+####作用域指针[一般]
+一个作用域指针独占一个动态分配的对象。 对应的类名为 boost::scoped_ptr，它的定义在 boost/scoped_ptr.hpp 中。不像std::auto_ptr，一个作用域指针不能传递它所包含的对象的所有权到另一个作用域指针。一旦用一个地址来初始化，这个动态分配的对象将在析构阶段释放。因为一个作用域指针只是简单保存和独占一个内存地址，所以boost::scoped_ptr的实现就要比std::auto_ptr简单。在不需要所有权传递的时候应该优先使用boost::scoped_ptr。在这些情况下，比起std::auto_ptr它是一个更好的选择，因为可以避免不经意间的所有权传递。
 实例：
 #include <boost/scoped_ptr.hpp> 
 
@@ -28,12 +27,12 @@ int main()
     *i.get() = 2; 
     i.reset(new int); 
 }
-一经初始化，智能指针boost::scoped_ptr所包含的对象，可以通过类似于普通指针的接口来访问。 这是因为重载了相关的操作符 operator*()，operator->()和operator bool()。此外，还有get()和reset()方法。
+一经初始化，智能指针boost::scoped_ptr所包含的对象，可以通过类似于普通指针的接口来访问。这是因为重载了相关的操作符operator*()，operator->()和operator bool()。此外，还有get()和reset()方法。
 前者返回所含对象的地址，后者用一个新的对象来重新初始化智能指针。 在这种情况下，新创建的对象赋值之前会先自动释放所包含的对象。
 
 boost::scoped_ptr的析构函数中使用delete操作符来释放所包含的对象。这对boost::scoped_ptr所包含的类型加上了一条重要的限制。 boost::scoped_ptr不能用动态分配的数组来做初始化，因为这需要调用delete[]来释放。 在这种情况下，可以使用下面将要介绍的boost:scoped_array类。
 
-####作用域数组
+####作用域数组[一般]
 作用域数组的使用方式与作用域指针相似。关键不同在于，作用域数组的析构函数使用delete[]操作符来释放所包含的对象。因为该操作符只能用于数组对象，所以作用域数组必须通过动态分配的数组来初始化。
 对应的作用域数组类名为boost::scoped_array，它的定义在boost/scoped_array.hpp里。
 实例：
@@ -50,7 +49,7 @@ boost:scoped_array类重载了操作符operator[]()和operator bool()。可以�
 
 正如boost::scoped_ptr那样，boost:scoped_array也提供了get()和reset()方法，用来返回和重新初始化所含对象的地址。
 
-####共享指针
+####共享指针[重要]
 这是使用率最高的智能指针。如果开发环境支持的话，可以使用memory中定义的std::shared_ptr。在Boost C++ 库里，这个智能指针命名为boost::shared_ptr，定义在boost/shared_ptr.hpp里。
 
 智能指针boost::shared_ptr基本上类似于boost::scoped_ptr。关键不同之处在于boost::shared_ptr不一定要独占一个对象。它可以和其他boost::shared_ptr类型的智能指针共享所有权。 在这种情况下，当引用对象的最后一个智能指针销毁后，对象才会被释放。
@@ -77,13 +76,12 @@ int main()
   boost::shared_ptr<int> i1(new int(1)); 
   boost::shared_ptr<int> i2(i1); 
   i1.reset(new int(2)); 
-} 
-下载源代码
+}
 本例中定义了2个共享指针i1和i2，它们都引用到同一个int类型的对象。i1通过new操作符返回的地址显示的初始化，i2 通过i1拷贝构造而来。i1接着调用reset()，它所包含的整数的地址被重新初始化。不过它之前所包含的对象并没有被释放，因为i2仍然引用着它。智能指针boost::shared_ptr记录了有多少个共享指针在引用同一个对象，只有在最后一个共享指针销毁时才会释放这个对象。
 
 默认情况下，boost::shared_ptr使用delete操作符来销毁所含的对象。然而，具体通过什么方法来销毁，也是可以指定的。
 
-####共享数组
+####共享数组[较重要]
 共享数组的行为类似于共享指针。关键不同在于共享数组在析构时，默认使用delete[]操作符来释放所含的对象。因为这个操作符只能用于数组对象，共享数组必须通过动态分配的数组的地址来初始化。
 
 共享数组对应的类型是boost::shared_array，它的定义在boost/shared_array.hpp里。
@@ -102,14 +100,14 @@ int main()
 
 和本章中所有的智能指针一样，boost::shared_array也同样提供了get()和reset()方法。另外还重载了operator bool()。
 
-####弱指针
+####弱指针[不重要]
 到目前为止介绍的各种智能指针都能在不同的场合下独立使用。相反，弱指针只有在配合共享指针一起使用时才有意义。弱指针boost::weak_ptr的定义在boost/weak_ptr.hpp里。
 
-####介入式指针
+####介入式指针[不重要]
 介入式指针的工作方式和共享指针完全一样。boost::shared_ptr在内部记录着引用到某个对象的共享指针的数量，可是对介入式指针来说，程序员就得自己来做记录。对于框架对象来说这就特别有用，因为它们记录着自身被引用的次数。
 介入式指针boost::intrusive_ptr定义在boost/intrusive_ptr.hpp里。
 
-####指针容器
+####指针容器[较重要]
 在你见过BoostC++库的各种智能指针之后，应该能够编写安全的代码，来使用动态分配的对象和数组。多数时候，这些对象要存储在容器里，如上所述，使用boost::shared_ptr和boost::shared_array这就相当简单了。
 
 #include <boost/shared_ptr.hpp> 
@@ -137,7 +135,7 @@ boost::ptr_vector类的定义在boost/ptr_container/ptr_vector.hpp里，它跟�
 
 ###函数对象
 ####概述
-####Boost.Bind
+####Boost.Bind[较重要]
 Boost.Bind是这样的一个库，它简化了由C++标准中的std::bind1st()和std::bind2nd()模板函数所提供的一个机制：将这些函数与几乎不限数量的参数一起使用，就可以得到指定签名的函数。 这种情形的一个最好的例子就是在C++标准中定义的多个不同算法。
 
 #include <iostream>
@@ -283,7 +281,7 @@ int main()
 }
 该例子仅改变了占位符的顺序：_2被作为第一参数传递，而_1则被作为第二参数传递至compare()，这样即可改变排序的顺序。
 
-####Boost.Ref
+####Boost.Ref[较不重要]
 本库Boost.Ref通常与Boost.Bind一起使用，所以我把它们挨着写。它提供了两个函数boost::ref()和boost::cref()，定义于boost/ref.hpp。
 
 当要用于boost::bind()的函数带有至少一个引用参数时，Boost.Ref就很重要了。由于boost::bind()会复制它的参数，所以引用必须特别处理。
@@ -313,7 +311,7 @@ int main()
 
 要以引用方式传递常量对象，可以使用模板函数boost::cref()。
 
-####Boost.Function
+####Boost.Function[较重要]
 为了封装函数指针，Boost.Function提供了一个名为boost::function的类。它定义于boost/function.hpp，用法如下：
 
 #include <boost/function.hpp> 
@@ -377,7 +375,7 @@ int main()
 
 这个程序还使用了来自Boost.Ref库的boost::ref()，它提供了一个方便的机制向Boost.Function传递引用。
 
-####Boost.Lambda
+####Boost.Lambda[较不重要]
 匿名函数，又称为lambda函数。已经在多种编程语言中存在，但C++除外。不过在Boost.Lambda库的帮助下，现在在C++应用中也可以使用它们了。
 
 lambda函数的目标是令源代码更为紧凑，从而也更容易理解。以本章第一节中的代码例子为例。
@@ -414,7 +412,7 @@ int main()
     v.push_back(3); 
     v.push_back(2); 
 
-    std::for_each(v.begin(), v.end(), std::cout << boost::lambda::_1 << "\n"); 
+    std::for_each(v.begin(), v.end(), std::cout << boost::lambda::_1 << "\n");
 }
 Boost.Lambda提供了几个结构来定义匿名函数。代码就被置于执行的地方，从而省去将它包装为一个函数再进行相应的函数调用的这些开销。与原来的例子一样，这个程序将容器v的所有元素写出至标准输出流。
 
@@ -422,9 +420,9 @@ Boost.Lambda提供了几个结构来定义匿名函数。代码就被置于执�
 
 虽然代码的位置位于std::for_each()的第三个参数处，看起来很怪异，但boost.Lambda可以写出正常的C++代码。通过使用占位符，容器v的元素可以通过<<传给std::cout以将它们写出到标准输出流。
 
-虽然 Boost.Lambda 非常强大，但也有一些缺点。 要在以上例子中插入换行的话，必须用 "\n" 来替代 std::endl 才能成功编译。 因为一元 std::endl 模板函数所要求的类型不同于 lambda 函数 std::cout << boost::lambda::_1 的函数，所以在此不能使用它。
+虽然Boost.Lambda非常强大，但也有一些缺点。要在以上例子中插入换行的话，必须用"\n"来替代std::endl才能成功编译。因为一元std::endl模板函数所要求的类型不同于lambda函数std::cout<<boost::lambda::_1的函数，所以在此不能使用它。
 
-下一个版本的 C++ 标准很可能会将 lambda 函数作为 C++ 语言本身的组成部分加入，从而消除对单独的库的需要。 但是在下一个版本到来并被不同的编译器厂商所采用可能还需要好几年。 在此之前，Boost.Lambda 被证明是一个完美的替代品，从以下例子可以看出，这个例子只将大于1的元素写出到标准输出流。
+下一个版本的C++标准很可能会将lambda函数作为C++语言本身的组成部分加入，从而消除对单独的库的需要。但是在下一个版本到来并被不同的编译器厂商所采用可能还需要好几年。在此之前，Boost.Lambda被证明是一个完美的替代品，从以下例子可以看出，这个例子只将大于1的元素写出到标准输出流。
 
 #include <boost/lambda/lambda.hpp> 
 #include <boost/lambda/if.hpp> 
@@ -434,23 +432,283 @@ Boost.Lambda提供了几个结构来定义匿名函数。代码就被置于执�
 
 int main() 
 { 
-  std::vector<int> v; 
-  v.push_back(1); 
-  v.push_back(3); 
-  v.push_back(2); 
+    std::vector<int> v; 
+    v.push_back(1); 
+    v.push_back(3); 
+    v.push_back(2); 
 
-  std::for_each(v.begin(), v.end(), 
+    std::for_each(v.begin(), v.end(), 
     boost::lambda::if_then(boost::lambda::_1 > 1, 
     std::cout << boost::lambda::_1 << "\n")); 
+}
+头文件boost/lambda/if.hpp定义了几个结构，允许在lambda函数内部使用if语句。最基本的结构是boost::lambda::if_then()模板函数，它要求两个参数：第一个参数对条件求值，如果为真，则执行第二个参数。如例中所示，每个参数本身都可以是lambda函数。
+
+除了boost::lambda::if_then()，Boost.Lambda还提供了boost::lambda::if_then_else()和boost::lambda::if_then_else_return()模板函数，它们都要求三个参数。另外还提供了用于实现循环、转型操作符，甚至是throw，允许lambda函数抛出异常的模板函数。
+
+虽然可以用这些模板函数在C++中构造出复杂的lambda函数，但是你必须要考虑其它方面，如可读性和可维护性。因为别人需要学习并理解额外的函数，如用boost::lambda::if_then()来替代已知的C++关键字if和else，lambda函数的好处通常随着它的复杂性而降低。多数情况下，更为合理的方法是用熟悉的C++结构定义一个单独的函数。
+
+
+###事件处理
+
+####概述
+
+####信号Signals
+Boost.Signals提供了一个名为boost::signal的类，定义于boost/signal.hpp，这个头文件是唯一一个需要知道的，它会自动包含其它相关的头文件。
+
+Boost.Signals定义了其它一些类，位于boost::signals名字空间中。由于boost::signal是最常被用到的类，所以它是位于名字空间boost中的。
+实例：
+#include <boost/signals2.hpp> 
+#include <iostream> 
+
+void func() 
+{ 
+    std::cout << "Hello, world!" << std::endl;
+} 
+
+int main() 
+{ 
+    boost::signals2::signal< void ()> s; 
+    s.connect(func); 
+    s(); 
+}
+boost::signal实际上被实现为一个模板函数，具有被用作为事件处理器的函数的签名，该签名也是它的模板参数。在这个例子中，只有签名为void()的函数可以被成功关联至信号s。
+
+函数 func() 被通过 connect() 方法关联至信号 s。 由于 func() 符合所要求的 void () 签名，所以该关联成功建立。因此当信号 s 被触发时，func() 将被调用。
+
+信号是通过调用 s 来触发的，就象普通的函数调用那样。 这个函数的签名对应于作为模板参数传入的签名：因为 void () 不要求任何参数，所以括号内是空的。
+
+调用 s 会引发一个触发器，进而执行相应的 func() 函数 - 之前用 connect() 关联了的。
+
+同一例子也可以用 Boost.Function 来实现。
+
+#include <boost/function.hpp> 
+#include <iostream> 
+
+void func() 
+{ 
+  std::cout << "Hello, world!" << std::endl; 
+} 
+
+int main() 
+{ 
+  boost::function<void ()> f; 
+  f = func; 
+  f(); 
 } 
 下载源代码
-头文件 boost/lambda/if.hpp 定义了几个结构，允许在 lambda 函数内部使用 if 语句。 最基本的结构是 boost::lambda::if_then() 模板函数，它要求两个参数：第一个参数对条件求值 - 如果为真，则执行第二个参数。 如例中所示，每个参数本身都可以是 lambda 函数。
+和前一个例子相类似，func() 被关联至 f。 当 f 被调用时，就会相应地执行 func()。 Boost.Function 仅限于这种情形下适用，而 Boost.Signals 则提供了多得多的方式，如关联多个函数至单个特定信号，示例如下。
 
-除了 boost::lambda::if_then(), Boost.Lambda 还提供了 boost::lambda::if_then_else() 和 boost::lambda::if_then_else_return() 模板函数 - 它们都要求三个参数。 另外还提供了用于实现循环、转型操作符，甚至是 throw - 允许 lambda 函数抛出异常 - 的模板函数。
+#include <boost/signal.hpp> 
+#include <iostream> 
 
-虽然可以用这些模板函数在 C++ 中构造出复杂的 lambda 函数，但是你必须要考虑其它方面，如可读性和可维护性。 因为别人需要学习并理解额外的函数，如用 boost::lambda::if_then() 来替代已知的 C++ 关键字 if 和 else，lambda 函数的好处通常随着它的复杂性而降低。 多数情况下，更为合理的方法是用熟悉的 C++ 结构定义一个单独的函数。
+void func1() 
+{ 
+  std::cout << "Hello" << std::flush; 
+} 
+
+void func2() 
+{ 
+  std::cout << ", world!" << std::endl; 
+} 
+
+int main() 
+{ 
+  boost::signal<void ()> s; 
+  s.connect(func1); 
+  s.connect(func2); 
+  s(); 
+} 
+下载源代码
+boost::signal 可以通过反复调用 connect() 方法来把多个函数赋值给单个特定信号。 当该信号被触发时，这些函数被按照之前用 connect() 进行关联时的顺序来执行。
+
+另外，执行的顺序也可通过 connect() 方法的另一个重载版本来明确指定，该重载版本要求以一个 int 类型的值作为额外的参数。
+
+#include <boost/signal.hpp> 
+#include <iostream> 
+
+void func1() 
+{ 
+  std::cout << "Hello" << std::flush; 
+} 
+
+void func2() 
+{ 
+  std::cout << ", world!" << std::endl; 
+} 
+
+int main() 
+{ 
+  boost::signal<void ()> s; 
+  s.connect(1, func2); 
+  s.connect(0, func1); 
+  s(); 
+} 
+下载源代码
+和前一个例子一样，func1() 在 func2() 之前执行。
+
+要释放某个函数与给定信号的关联，可以用 disconnect() 方法。
+
+#include <boost/signal.hpp> 
+#include <iostream> 
+
+void func1() 
+{ 
+  std::cout << "Hello" << std::endl; 
+} 
+
+void func2() 
+{ 
+  std::cout << ", world!" << std::endl; 
+} 
+
+int main() 
+{ 
+  boost::signal<void ()> s; 
+  s.connect(func1); 
+  s.connect(func2); 
+  s.disconnect(func2); 
+  s(); 
+} 
+下载源代码
+这个例子仅输出 Hello，因为与 func2() 的关联在触发信号之前已经被释放。
+
+除了 connect() 和 disconnect() 以外，boost::signal 还提供了几个方法。
+
+#include <boost/signal.hpp> 
+#include <iostream> 
+
+void func1() 
+{ 
+  std::cout << "Hello" << std::flush; 
+} 
+
+void func2() 
+{ 
+  std::cout << ", world!" << std::endl; 
+} 
+
+int main() 
+{ 
+  boost::signal<void ()> s; 
+  s.connect(func1); 
+  s.connect(func2); 
+  std::cout << s.num_slots() << std::endl; 
+  if (!s.empty()) 
+    s(); 
+  s.disconnect_all_slots(); 
+} 
+下载源代码
+num_slots() 返回已关联函数的数量。如果没有函数被关联，则 num_slots() 返回0。 在这种特定情况下，可以用 empty() 方法来替代。 disconnect_all_slots() 方法所做的实际上正是它的名字所表达的：释放所有已有的关联。
+
+看完了函数如何被关联至信号，以及弄明白了信号被触发时会发生什么事之后，还有一个问题：这些函数的返回值去了哪里？ 以下例子回答了这个问题。
+
+#include <boost/signal.hpp> 
+#include <iostream> 
+
+int func1() 
+{ 
+  return 1; 
+} 
+
+int func2() 
+{ 
+  return 2; 
+} 
+
+int main() 
+{ 
+  boost::signal<int ()> s; 
+  s.connect(func1); 
+  s.connect(func2); 
+  std::cout << s() << std::endl; 
+} 
+下载源代码
+func1() 和 func2() 都具有 int 类型的返回值。 s 将处理两个返回值，并将它们都写出至标准输出流。 那么，到底会发生什么呢？
+
+以上例子实际上会把 2 写出至标准输出流。 两个返回值都被 s 正确接收，但除了最后一个值，其它值都会被忽略。 缺省情况下，所有被关联函数中，实际上只有最后一个返回值被返回。
+
+你可以定制一个信号，令每个返回值都被相应地处理。 为此，要把一个称为合成器(combiner)的东西作为第二个参数传递给 boost::signal。
+
+#include <boost/signal.hpp> 
+#include <iostream> 
+#include <algorithm> 
+
+int func1() 
+{ 
+  return 1; 
+} 
+
+int func2() 
+{ 
+  return 2; 
+} 
+
+template <typename T> 
+struct min_element 
+{ 
+  typedef T result_type; 
+
+  template <typename InputIterator> 
+  T operator()(InputIterator first, InputIterator last) const 
+  { 
+    return *std::min_element(first, last); 
+  } 
+}; 
+
+int main() 
+{ 
+  boost::signal<int (), min_element<int> > s; 
+  s.connect(func1); 
+  s.connect(func2); 
+  std::cout << s() << std::endl; 
+} 
+下载源代码
+合成器是一个重载了 operator()() 操作符的类。这个操作符会被自动调用，传入两个迭代器，指向某个特定信号的所有返回值。 以上例子使用了标准 C++ 算法 std::min_element() 来确定并返回最小的值。
+
+不幸的是，我们不可能把象 std::min_element() 这样的一个算法直接传给 boost::signal 作为一个模板参数。 boost::signal 要求这个合成器定义一个名为 result_type 的类型，用于说明 operator()() 操作符返回值的类型。 由于在标准 C++ 算法中缺少这个类型，所以在编译时会产生一个相应的错误。
+
+除了对返回值进行分析以外，合成器也可以保存它们。
+
+#include <boost/signal.hpp> 
+#include <iostream> 
+#include <vector> 
+#include <algorithm> 
+
+int func1() 
+{ 
+  return 1; 
+} 
+
+int func2() 
+{ 
+  return 2; 
+} 
+
+template <typename T> 
+struct min_element 
+{ 
+  typedef T result_type; 
+
+  template <typename InputIterator> 
+  T operator()(InputIterator first, InputIterator last) const 
+  { 
+    return T(first, last); 
+  } 
+}; 
+
+int main() 
+{ 
+  boost::signal<int (), min_element<std::vector<int> > > s; 
+  s.connect(func1); 
+  s.connect(func2); 
+  std::vector<int> v = s(); 
+  std::cout << *std::min_element(v.begin(), v.end()) << std::endl; 
+} 
+下载源代码
+这个例子把所有返回值保存在一个 vector 中，再由 s() 返回。
 
 
+####连接Connections
 
 
 
