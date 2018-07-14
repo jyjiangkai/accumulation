@@ -452,7 +452,7 @@ int main()
 
 ####概述
 
-####信号Signals
+####信号Signals[一般]
 Boost.Signals提供了一个名为boost::signal的类，定义于boost/signal.hpp，这个头文件是唯一一个需要知道的，它会自动包含其它相关的头文件。
 
 Boost.Signals定义了其它一些类，位于boost::signals名字空间中。由于boost::signal是最常被用到的类，所以它是位于名字空间boost中的。
@@ -473,32 +473,29 @@ int main()
 }
 boost::signal实际上被实现为一个模板函数，具有被用作为事件处理器的函数的签名，该签名也是它的模板参数。在这个例子中，只有签名为void()的函数可以被成功关联至信号s。
 
-函数 func() 被通过 connect() 方法关联至信号 s。 由于 func() 符合所要求的 void () 签名，所以该关联成功建立。因此当信号 s 被触发时，func() 将被调用。
+函数func()被通过connect()方法关联至信号s。由于func()符合所要求的void()签名，所以该关联成功建立。因此当信号s被触发时，func()将被调用。
 
-信号是通过调用 s 来触发的，就象普通的函数调用那样。 这个函数的签名对应于作为模板参数传入的签名：因为 void () 不要求任何参数，所以括号内是空的。
+信号是通过调用s来触发的，就像普通的函数调用那样。这个函数的签名对应于作为模板参数传入的签名：因为void()不要求任何参数，所以括号内是空的。
 
-调用 s 会引发一个触发器，进而执行相应的 func() 函数 - 之前用 connect() 关联了的。
+调用s会引发一个触发器，进而执行相应的func()函数，之前用connect()关联了的。
 
-同一例子也可以用 Boost.Function 来实现。
-
+同一例子也可以用Boost.Function来实现。
 #include <boost/function.hpp> 
 #include <iostream> 
 
 void func() 
 { 
-  std::cout << "Hello, world!" << std::endl; 
+    std::cout << "Hello, world!" << std::endl; 
 } 
 
 int main() 
 { 
-  boost::function<void ()> f; 
-  f = func; 
-  f(); 
-} 
-下载源代码
-和前一个例子相类似，func() 被关联至 f。 当 f 被调用时，就会相应地执行 func()。 Boost.Function 仅限于这种情形下适用，而 Boost.Signals 则提供了多得多的方式，如关联多个函数至单个特定信号，示例如下。
-
-#include <boost/signal.hpp> 
+    boost::function<void ()> f; 
+    f = func; 
+    f(); 
+}
+和前一个例子相类似，func()被关联至f。当f被调用时，就会相应地执行func()。Boost.Function仅限于这种情形下适用，而Boost.Signals则提供了更多的方式，如关联多个函数至单个特定信号，示例如下。
+#include <boost/signals2.hpp> 
 #include <iostream> 
 
 void func1() 
@@ -513,17 +510,15 @@ void func2()
 
 int main() 
 { 
-  boost::signal<void ()> s; 
+  boost::signals2::signal<void ()> s; 
   s.connect(func1); 
   s.connect(func2); 
   s(); 
-} 
-下载源代码
-boost::signal 可以通过反复调用 connect() 方法来把多个函数赋值给单个特定信号。 当该信号被触发时，这些函数被按照之前用 connect() 进行关联时的顺序来执行。
+}
+boost::signal可以通过反复调用connect()方法来把多个函数赋值给单个特定信号。当该信号被触发时，这些函数被按照之前用connect()进行关联时的顺序来执行。
 
-另外，执行的顺序也可通过 connect() 方法的另一个重载版本来明确指定，该重载版本要求以一个 int 类型的值作为额外的参数。
-
-#include <boost/signal.hpp> 
+另外，执行的顺序也可通过connect()方法的另一个重载版本来明确指定，该重载版本要求以一个int类型的值作为额外的参数。
+#include <boost/signals2.hpp> 
 #include <iostream> 
 
 void func1() 
@@ -538,22 +533,20 @@ void func2()
 
 int main() 
 { 
-  boost::signal<void ()> s; 
+  boost::signals2::signal<void ()> s; 
   s.connect(1, func2); 
   s.connect(0, func1); 
   s(); 
-} 
-下载源代码
-和前一个例子一样，func1() 在 func2() 之前执行。
+}
+和前一个例子一样，func1()在func2()之前执行。
 
-要释放某个函数与给定信号的关联，可以用 disconnect() 方法。
-
-#include <boost/signal.hpp> 
+要释放某个函数与给定信号的关联，可以用disconnect()方法。
+#include <boost/signals2.hpp> 
 #include <iostream> 
 
 void func1() 
 { 
-  std::cout << "Hello" << std::endl; 
+  std::cout << "Hello" << std::flush; 
 } 
 
 void func2() 
@@ -563,18 +556,16 @@ void func2()
 
 int main() 
 { 
-  boost::signal<void ()> s; 
+  boost::signals2::signal<void ()> s; 
   s.connect(func1); 
   s.connect(func2); 
   s.disconnect(func2); 
   s(); 
-} 
-下载源代码
-这个例子仅输出 Hello，因为与 func2() 的关联在触发信号之前已经被释放。
+}
+这个例子仅输出Hello，因为与func2()的关联在触发信号之前已经被释放。
 
-除了 connect() 和 disconnect() 以外，boost::signal 还提供了几个方法。
-
-#include <boost/signal.hpp> 
+除了connect()和disconnect()以外，boost::signal还提供了几个方法。
+#include <boost/signals2.hpp> 
 #include <iostream> 
 
 void func1() 
@@ -589,19 +580,17 @@ void func2()
 
 int main() 
 { 
-  boost::signal<void ()> s; 
+  boost::signals2::signal<void ()> s; 
   s.connect(func1); 
   s.connect(func2); 
   std::cout << s.num_slots() << std::endl; 
   if (!s.empty()) 
     s(); 
   s.disconnect_all_slots(); 
-} 
-下载源代码
-num_slots() 返回已关联函数的数量。如果没有函数被关联，则 num_slots() 返回0。 在这种特定情况下，可以用 empty() 方法来替代。 disconnect_all_slots() 方法所做的实际上正是它的名字所表达的：释放所有已有的关联。
+}
+num_slots()返回已关联函数的数量。如果没有函数被关联，则num_slots()返回0。 这种特定情况下，可以用empty()方法来替代。disconnect_all_slots()方法所做的实际上正是它的名字所表达的：释放所有已有的关联。
 
-看完了函数如何被关联至信号，以及弄明白了信号被触发时会发生什么事之后，还有一个问题：这些函数的返回值去了哪里？ 以下例子回答了这个问题。
-
+看完了函数如何被关联至信号，以及弄明白了信号被触发时会发生什么事之后，还有一个问题：这些函数的返回值去了哪里？以下例子回答了这个问题。
 #include <boost/signal.hpp> 
 #include <iostream> 
 
@@ -621,99 +610,51 @@ int main()
   s.connect(func1); 
   s.connect(func2); 
   std::cout << s() << std::endl; 
-} 
-下载源代码
-func1() 和 func2() 都具有 int 类型的返回值。 s 将处理两个返回值，并将它们都写出至标准输出流。 那么，到底会发生什么呢？
+}
+func1()和func2()都具有int类型的返回值。s将处理两个返回值，并将它们都写出至标准输出流。那么，到底会发生什么呢？
 
-以上例子实际上会把 2 写出至标准输出流。 两个返回值都被 s 正确接收，但除了最后一个值，其它值都会被忽略。 缺省情况下，所有被关联函数中，实际上只有最后一个返回值被返回。
+以上例子实际上会把2写出至标准输出流。两个返回值都被s正确接收，但除了最后一个值，其它值都会被忽略。缺省情况下，所有被关联函数中，实际上只有最后一个返回值被返回。
 
-你可以定制一个信号，令每个返回值都被相应地处理。 为此，要把一个称为合成器(combiner)的东西作为第二个参数传递给 boost::signal。
-
-#include <boost/signal.hpp> 
+####连接Connections[一般]
+函数可以通过由boost::signal所提供的connect()和disconnect()方法的帮助来进行管理。由于connect()会返回一个类型为boost::signals::connection的值，它们可以通过其它方法来管理。
+实例：
+#include <boost/signals2.hpp> 
 #include <iostream> 
-#include <algorithm> 
 
-int func1() 
+void func() 
 { 
-  return 1; 
+  std::cout << "Hello, world!" << std::endl; 
 } 
-
-int func2() 
-{ 
-  return 2; 
-} 
-
-template <typename T> 
-struct min_element 
-{ 
-  typedef T result_type; 
-
-  template <typename InputIterator> 
-  T operator()(InputIterator first, InputIterator last) const 
-  { 
-    return *std::min_element(first, last); 
-  } 
-}; 
 
 int main() 
 { 
-  boost::signal<int (), min_element<int> > s; 
-  s.connect(func1); 
-  s.connect(func2); 
-  std::cout << s() << std::endl; 
-} 
-下载源代码
-合成器是一个重载了 operator()() 操作符的类。这个操作符会被自动调用，传入两个迭代器，指向某个特定信号的所有返回值。 以上例子使用了标准 C++ 算法 std::min_element() 来确定并返回最小的值。
+  boost::signals2::signal<void ()> s; 
+  boost::signals2::connection c = s.connect(func); 
+  s(); 
+  c.disconnect(); 
+}
+boost::signal的disconnect()方法需要传入一个函数指针，而直接调用boost::signals::connection对象上的disconnect()方法则略去该参数。
 
-不幸的是，我们不可能把象 std::min_element() 这样的一个算法直接传给 boost::signal 作为一个模板参数。 boost::signal 要求这个合成器定义一个名为 result_type 的类型，用于说明 operator()() 操作符返回值的类型。 由于在标准 C++ 算法中缺少这个类型，所以在编译时会产生一个相应的错误。
-
-除了对返回值进行分析以外，合成器也可以保存它们。
-
+除了disconnect()方法之外，boost::signals::connection还提供了其它方法，如block()和unblock()。
+实例：
 #include <boost/signal.hpp> 
 #include <iostream> 
-#include <vector> 
-#include <algorithm> 
 
-int func1() 
+void func() 
 { 
-  return 1; 
+  std::cout << "Hello, world!" << std::endl; 
 } 
-
-int func2() 
-{ 
-  return 2; 
-} 
-
-template <typename T> 
-struct min_element 
-{ 
-  typedef T result_type; 
-
-  template <typename InputIterator> 
-  T operator()(InputIterator first, InputIterator last) const 
-  { 
-    return T(first, last); 
-  } 
-}; 
 
 int main() 
 { 
-  boost::signal<int (), min_element<std::vector<int> > > s; 
-  s.connect(func1); 
-  s.connect(func2); 
-  std::vector<int> v = s(); 
-  std::cout << *std::min_element(v.begin(), v.end()) << std::endl; 
-} 
-下载源代码
-这个例子把所有返回值保存在一个 vector 中，再由 s() 返回。
-
-
-####连接Connections
-
-
-
-
-
+  boost::signal<void ()> s; 
+  boost::signals::connection c = s.connect(func); 
+  c.block(); 
+  s(); 
+  c.unblock(); 
+  s(); 
+}
+以上程序只会执行一次func()。虽然信号s被触发了两次，但是在第一次触发时func()不会被调用，因为连接c实际上已经被block()调用所阻塞。由于在第二次触发之前调用了unblock()，所以之后func()被正确地执行。
 
 
 
