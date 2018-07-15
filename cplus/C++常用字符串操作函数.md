@@ -1,6 +1,6 @@
 ##C++ 常用字符串操作函数
 
-###获取字符串长度
+###常用获取字符串长度函数
 常用函数：size()、sizeof()、strlen()、length()、strnlen()
 C/C++ strlen(str)和str.length()和str.size()都可以求字符串长度。其中str.length()和str.size()是用于求string类对象的成员函数，
 strlen(str)是用于求字符数组的长度，其参数是char*，sizeof(str)用于求所占总空间的字节数。
@@ -24,7 +24,7 @@ char[] str={'a','b','c','\0','X'};
 sizeof(str)为5
 strlen(str)为3
 
-###字符串操作函数
+###常用字符串操作函数
 ####内存复制
 ######memcpy_s
 ######memmove_s
@@ -37,6 +37,13 @@ strlen(str)为3
 
 ####字符串连接
 ######strncat_s
+
+######boost::algorithm::join
+函数boost::algorithm::join()接受一个字符串的容器作为第一个参数，根据第二个参数将这些字符串连接起来。
+std::vector<std::string> v; 
+v.push_back("Hello"); 
+v.push_back("World");
+std::cout << boost::algorithm::join(v, " ") << std::endl;
 
 ####字符串分割
 ######strtok_s
@@ -61,16 +68,25 @@ int split(string &str, string &sep, vector<string> &vec)
 str：输入字符串
 sep：分隔字符串
 vec：用于保存分割后的字符串片段
-######split
+
+######boost::split
 boost库提供了split函数，可以直接使用
 split(vector<string> &vec, string &str, string &sep, token_compress_mode_type eCompress=token_compress_off);
 例：
-boost::split(vec, s, boost::is_any_of( "," ));
+boost::split(vec, str, boost::is_any_of( "," ));
 以","字符分割字符串s，并将结果保存在容器vec中
-boost::split(vec, s, boost::is_any_of( ",;" ));
+boost::split(vec, str, boost::is_any_of( ",;" ));
 以",;"中任意字符分割字符串s，并将结果保存在容器vec中
-boost::split(vec, s, boost::is_any_of(" ,;"), boost::token_compress_on);
-以" ,;"中任意字符分割字符串s，并将结果保存在容器vec中，若最后一个参数配置为token_compress_on，则表示分割后剔除空行
+boost::split(vec, str, boost::is_any_of(" ,;"), boost::token_compress_on);
+以" ,;"中任意字符分割字符串str，并将结果保存在容器vec中，若最后一个参数配置为token_compress_on，则表示分割后剔除空行
+
+######boost::algorithm::split
+将一个字符串拆分为一个字符串容器
+例：
+std::vector<std::string> v; 
+boost::algorithm::split(v, str, boost::algorithm::is_space());  //以空格作为分隔符
+boost::algorithm::split(v, str, boost::algorithm::is_digit());  //以数字作为分隔符
+boost::algorithm::split(v, str, boost::algorithm::is_any_of(",;"));  //以",;"中任意字符作为分隔符
 
 ####字符串比较
 ######strncmp
@@ -79,6 +95,18 @@ boost::split(vec, s, boost::is_any_of(" ,;"), boost::token_compress_on);
 如果返回值 < 0，则表示 str1 小于 str2。
 如果返回值 > 0，则表示 str2 小于 str1。
 如果返回值 = 0，则表示 str1 等于 str2。
+
+######boost::algorithm::starts_with
+比较字符串头部是否相等，若相等，返回1，否则返回0。
+boost::algorithm::starts_with(str, "Hello");
+
+######boost::algorithm::ends_with
+比较字符串尾部是否相等，若相等，返回1，否则返回0。
+boost::algorithm::ends_with(str, "World");
+
+######boost::algorithm::contains
+比较字符串是否包含子串，若包含，返回1，否则返回0。
+boost::algorithm::contains(str, "llo");
 
 ####字符串查找
 ######strchr
@@ -119,6 +147,89 @@ rfind()与find()很相似，差别在于查找顺序不一样，rfind()是从指
 
 ######find_last_not_of
 find_last_not_of()与find_first_not_of()相似，只不过查找顺序是从指定位置向前
+
+######boost::algorithm::find_first
+从字符串头部查找子串
+boost::algorithm::find_first(str, "Hello");
+
+######boost::algorithm::find_last
+从字符串尾部查找子串
+boost::algorithm::find_last(str, "Hello");
+
+######boost::algorithm::find_nth
+从字符串头部查找指定子串
+boost::algorithm::find_nth(str, "Hello", 0);
+
+####字符串大小写切换
+
+######boost::algorithm::to_upper_copy
+转换一个字符串为大写形式，不改变入参，返回值为字符串
+boost::algorithm::to_upper_copy(str);  //不改变字符串str
+
+######boost::algorithm::to_lower_copy
+转换一个字符串为小写形式，不改变入参，返回值为字符串
+boost::algorithm::to_lower_copy(str);  //不改变字符串str
+
+######boost::algorithm::to_upper
+转换一个字符串为大写形式，改变入参，无返回值
+boost::algorithm::to_upper(str);  //改变字符串str
+
+######boost::algorithm::to_lower
+转换一个字符串为小写形式，改变入参，无返回值
+boost::algorithm::to_lower(str);  //改变字符串str
+
+####字符串删除
+
+######boost::algorithm::erase_first_copy
+在字符串头部删除若干字符
+boost::algorithm::erase_first_copy(str, "ss");  //在字符串str头部删除字符串“ss” 
+
+######boost::algorithm::erase_last_copy
+在字符串尾部删除若干字符
+boost::algorithm::erase_last_copy(str, "ss");  //在字符串str尾部删除字符串“ss”
+
+######boost::algorithm::erase_nth_copy
+删除字符串中指定字符
+boost::algorithm::erase_nth_copy(str, "ss", 0);  //删除字符串str第一个字符串“ss”
+boost::algorithm::erase_nth_copy(str, "ss", 1);  //删除字符串str第二个字符串“ss”
+
+######boost::algorithm::erase_all_copy
+删除字符串中所有指定字符
+boost::algorithm::erase_all_copy(str, "ss");  //删除字符串str中所有字符串“ss”
+
+######boost::algorithm::erase_head_copy
+删除字符串头部几个字符
+boost::algorithm::erase_head_copy(str, 3);  //删除字符串str头部3个字符
+
+######boost::algorithm::erase_tail_copy
+删除字符串尾部几个字符
+boost::algorithm::erase_tail_copy(str, 5);  //删除字符串str尾部5个字符
+
+####字符串替换
+######boost::algorithm::replace_first_copy
+替换字符串中第一个子串
+boost::algorithm::replace_first_copy(s, "l", "L");  //替换字符串str中第一个"l"为"L"
+
+######boost::algorithm::replace_last_copy
+替换字符串中最后一个子串
+boost::algorithm::replace_last_copy(s, "l", "L");  //替换字符串str中最后一个"l"为"L"
+
+######boost::algorithm::replace_nth_copy
+替换字符创中指定子串
+boost::algorithm::replace_nth_copy(s, "l", 0, "L");  //替换字符串str中第一个"l"为"L"
+boost::algorithm::replace_nth_copy(s, "l", 1, "L");  //替换字符串str中第二个"l"为"L"
+
+######boost::algorithm::replace_all_copy
+替换字符串中所有子串
+boost::algorithm::replace_all_copy(s, "l", "L");  //替换字符串str中所有"l"为"L"
+
+######boost::algorithm::replace_head_copy
+替换字符串头部指定长度字串
+boost::algorithm::replace_head_copy(s, 3, "###");  //替换字符串str头部3个字符为"###"
+
+######boost::algorithm::replace_tail_copy
+替换字符串尾部指定长度字串
+boost::algorithm::replace_tail_copy(s, 5, "###");  //替换字符串str尾部5个字符为"###"
 
 ####其他
 ######stringstream
