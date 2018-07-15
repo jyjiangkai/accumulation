@@ -657,6 +657,206 @@ int main()
 以上程序只会执行一次func()。虽然信号s被触发了两次，但是在第一次触发时func()不会被调用，因为连接c实际上已经被block()调用所阻塞。由于在第二次触发之前调用了unblock()，所以之后func()被正确地执行。
 
 
+###字符串处理
+
+####前言
+####区域设置[较不重要]
+区域设置在标准C++中封装了文化习俗相关的内容，包括货币符号，日期时间格式，分隔整数部分与分数部分的符号(基数符)以及多于三个数字时的分隔符(千位符)。
+在字符串处理方面，区域设置和特定文化中对字符次序以及特殊字符的描述有关。
+
+####Boost.StringAlgorithms
+Boost C++字符串算法库Boost.StringAlgorithms提供了很多字符串操作函数。字符串的类型可以是std::string，std::wstring或任何其他模板类std::basic_string的实例。
+
+这些函数分类别在不同的头文件定义。例如，大小写转换函数定义在文件boost/algorithm/string/case_conv.hpp中。因为Boost.StringAlgorithms类中包括超过20个类别和相同数目的头文件，为了方便起见，头文件boost/algorithm/string.hpp包括了所有其他的头文件。后面所有例子都会使用这个头文件。
+实例：
+#include <boost/algorithm/string.hpp>
+#include <iostream>
+
+int main() 
+{ 
+    std::string s = "Hello World.";
+    std::cout << boost::algorithm::to_upper_copy(s) << std::endl;  //不改变s
+	std::cout << boost::algorithm::to_lower_copy(s) << std::endl; 
+	
+	boost::algorithm::to_upper(s);  //改变s
+	std::cout << "s = " << s << std::endl;
+	boost::algorithm::to_lower(s);
+	std::cout << "s = " << s << std::endl;
+}
+函数boost::algorithm::to_upper_copy()用于转换一个字符串为大写形式，自然也有提供相反功能的函数boost::algorithm::to_lower_copy()把字符串转换为小写形式。这两个函数都返回转换过的字符串作为结果。如果作为参数传入的字符串自身需要被转换为大(小)写形式，可以使用函数 boost::algorithm::to_upper()或boost::algorithm::to_lower()。
+
+Boost.StringAlgorithms库提供了几个从字符串中删除单独字母的函数，可以明确指定在哪里删除，如何删除。例如，可以使用函数boost::algorithm::erase_all_copy()从整个字符串中删除特定的某个字符。如果只在此字符首次出现时删除，可以使用函数boost::algorithm::erase_first_copy()。如果要在字符串头部或尾部删除若干字符，可以使用函数boost::algorithm::erase_head_copy()和boost::algorithm::erase_tail_copy()。
+实例：
+#include <boost/algorithm/string.hpp>
+#include <iostream> 
+
+int main() 
+{
+  std::string s = "Hello World."; 
+  std::cout << boost::algorithm::erase_first_copy(s, "l") << std::endl; 
+  std::cout << boost::algorithm::erase_last_copy(s, "l") << std::endl; 
+  std::cout << boost::algorithm::erase_nth_copy(s, "l", 0) << std::endl;
+  std::cout << boost::algorithm::erase_all_copy(s, "l") << std::endl; 
+  std::cout << boost::algorithm::erase_head_copy(s, 5) << std::endl; 
+  std::cout << boost::algorithm::erase_tail_copy(s, 8) << std::endl; 
+}
+
+boost::algorithm::erase_first_copy(s, "l")：删除字符串s中第一个'l'字符
+boost::algorithm::erase_last_copy(s, "l")：删除字符串s中最后一个'l'字符
+boost::algorithm::erase_nth_copy(s, "l", 0)：删除字符串s中第0个'l'字符
+boost::algorithm::erase_all_copy(s, "l")：删除字符串s中所有'l'字符
+boost::algorithm::erase_head_copy(s, 5)：删除字符串s中前5个字符
+boost::algorithm::erase_tail_copy(s, 8)：删除字符串s中后8个字符
+
+以下各个不同函数boost::algorithm::find_first()、boost::algorithm::find_last()、boost::algorithm::find_nth()、boost::algorithm::find_head()以及boost::algorithm::find_tail()可以用于在字符串中查找子串。
+实例：
+#include <boost/algorithm/string.hpp>
+#include <iostream> 
+
+int main() 
+{
+  std::string s = "Hello World."; 
+  boost::iterator_range<std::string::iterator> r;
+  r = boost::algorithm::find_first(s, "Hello"); 
+  std::cout << r << std::endl; 
+  r = boost::algorithm::find_first(s, "xyz"); 
+  std::cout << r << std::endl; 
+  r = boost::algorithm::find_last(s, "Hello"); 
+  std::cout << r << std::endl; 
+  r = boost::algorithm::find_nth(s, "Hello", 0); 
+  std::cout << r << std::endl;
+}
+所有这些函数的共同点是均返回类型为boost::iterator_range类的一对迭代器。此类起源于Boost C++的Boost.Range库，它在迭代器的概念上定义了“范围”。因为操作符<<由boost::iterator_range类重载而来，单个搜索算法的结果可以直接写入标准输出流。
+
+实例：
+#include <boost/algorithm/string.hpp>
+#include <iostream> 
+#include <vector> 
+
+int main() 
+{ 
+  std::vector<std::string> v; 
+  v.push_back("Hello"); 
+  v.push_back("World");
+  std::cout << boost::algorithm::join(v, " ") << std::endl;
+}
+函数boost::algorithm::join()接受一个字符串的容器作为第一个参数，根据第二个参数将这些字符串连接起来。相应地这个例子会输出Hello World。
+
+Boost.StringAlgorithms库不但提供了查找子串或删除字母的函数，而且提供了使用字符串替代子串的函数，包括boost::algorithm::replace_first_copy()，boost::algorithm::replace_nth_copy()，boost::algorithm::replace_last_copy()，boost::algorithm::replace_all_copy()，boost::algorithm::replace_head_copy()以及boost::algorithm::replace_tail_copy()等等。
+实例：
+#include <boost/algorithm/string.hpp>
+#include <iostream> 
+
+int main() 
+{ 
+  std::string s = "Hello World."; 
+  std::cout << boost::algorithm::replace_first_copy(s, "l", "L") << std::endl; 
+  std::cout << boost::algorithm::replace_nth_copy(s, "l", 0, "L") << std::endl; 
+  std::cout << boost::algorithm::replace_last_copy(s, "l", "L") << std::endl; 
+  std::cout << boost::algorithm::replace_all_copy(s, "l", "L") << std::endl; 
+  std::cout << boost::algorithm::replace_head_copy(s, 5, "###") << std::endl; 
+  std::cout << boost::algorithm::replace_tail_copy(s, 8, "###") << std::endl; 
+}
+它们的使用方法同查找和删除函数是差不多一样的，所不同的是还需要一个替代字符串作为附加参数。
+
+可以使用修剪函数boost::algorithm::trim_left_copy()，boost::algorithm::trim_right_copy()以及boost::algorithm::trim_copy()等自动去除字符串中的空格或者字符串的结束符。
+实例：
+#include <boost/algorithm/string.hpp>
+#include <iostream> 
+
+int main() 
+{
+  std::string s = "\t Hello World. \t"; 
+  std::cout << "." << boost::algorithm::trim_left_copy(s) << "." << std::endl; 
+  std::cout << "." <<boost::algorithm::trim_right_copy(s) << "." << std::endl; 
+  std::cout << "." <<boost::algorithm::trim_copy(s) << "." << std::endl; 
+}
+
+Boost.StringAlgorithms库的函数可以接受一个附加的谓词参数，以决定函数作用于字符串的哪些字符。谓词版本的修剪函数相应地被命名为boost::algorithm::trim_left_copy_if()，boost::algorithm::trim_right_copy_if()和boost::algorithm::trim_copy_if()。
+实例：
+#include <boost/algorithm/string.hpp>
+#include <iostream> 
+
+int main() 
+{
+  std::string s = "--Hello World.--"; 
+  std::cout << "=" << boost::algorithm::trim_left_copy_if(s, boost::algorithm::is_any_of("-")) << "=" << std::endl; 
+  std::cout << "=" <<boost::algorithm::trim_right_copy_if(s, boost::algorithm::is_any_of("-")) << "=" << std::endl; 
+  std::cout << "=" <<boost::algorithm::trim_copy_if(s, boost::algorithm::is_any_of("-")) << "=" << std::endl; 
+}
+以上程序调用了一个辅助函数boost::algorithm::is_any_of()，它用于生成谓词以验证作为参数传入的字符是否在给定的字符串中存在。使用函数boost::algorithm::is_any_of后，正如例子中做的那样，修剪字符串的字符被指定为连字符。
+
+Boost.StringAlgorithms类也提供了众多返回通用谓词的辅助函数。
+实例：
+#include <boost/algorithm/string.hpp>
+#include <iostream> 
+
+int main() 
+{
+  std::string s = "123456789Hello World123456789"; 
+  std::cout << "=" << boost::algorithm::trim_left_copy_if(s, boost::algorithm::is_digit()) << "=" << std::endl; 
+  std::cout << "=" <<boost::algorithm::trim_right_copy_if(s, boost::algorithm::is_digit()) << "=" << std::endl; 
+  std::cout << "=" <<boost::algorithm::trim_copy_if(s, boost::algorithm::is_digit()) << "=" << std::endl; 
+}
+函数boost::algorithm::is_digit()返回的谓词在字符为数字时返回布尔值true。检查字符是否为大写或小写的辅助函数分别是boost::algorithm::is_upper()和boost::algorithm::is_lower()。
+
+除了检验单独字符的谓词之外， Boost.StringAlgorithms 库还提供了处理字符串的函数。
+
+#include <boost/algorithm/string.hpp> 
+#include <locale> 
+#include <iostream> 
+
+int main() 
+{ 
+  std::locale::global(std::locale("German")); 
+  std::string s = "Boris Schäling"; 
+  std::cout << boost::algorithm::starts_with(s, "Boris") << std::endl; 
+  std::cout << boost::algorithm::ends_with(s, "Schäling") << std::endl; 
+  std::cout << boost::algorithm::contains(s, "is") << std::endl; 
+  std::cout << boost::algorithm::lexicographical_compare(s, "Boris") << std::endl; 
+} 
+下载源代码
+函数 boost::algorithm::starts_with()、 boost::algorithm::ends_with()、 boost::algorithm::contains() 和 boost::algorithm::lexicographical_compare() 均可以比较两个字符串。
+
+以下介绍一个字符串切割函数。
+
+#include <boost/algorithm/string.hpp> 
+#include <locale> 
+#include <iostream> 
+#include <vector> 
+
+int main() 
+{ 
+  std::locale::global(std::locale("German")); 
+  std::string s = "Boris Schäling"; 
+  std::vector<std::string> v; 
+  boost::algorithm::split(v, s, boost::algorithm::is_space()); 
+  std::cout << v.size() << std::endl; 
+} 
+下载源代码
+在给定分界符后，使用函数 boost::algorithm::split() 可以将一个字符串拆分为一个字符串容器。 它需要给定一个谓词作为第三个参数以判断应该在字符串的哪个位置分割。 这个例子使用了辅助函数 boost::algorithm::is_space() 创建一个谓词，在每个空格字符处分割字符串。
+
+本节中许多函数都有忽略字符串大小写的版本， 这些版本一般都有与原函数相似的名称，所相差的只是以 'i'.开头。 例如，与函数 boost::algorithm::erase_all_copy() 相对应的是函数 boost::algorithm::ierase_all_copy()。
+
+最后，值得注意的是类 Boost.StringAlgorithms 中许多函数都支持正则表达式。 以下程序使用函数 boost::algorithm::find_regex() 搜索正则表达式。
+
+#include <boost/algorithm/string.hpp> 
+#include <boost/algorithm/string/regex.hpp> 
+#include <locale> 
+#include <iostream> 
+
+int main() 
+{ 
+  std::locale::global(std::locale("German")); 
+  std::string s = "Boris Schäling"; 
+  boost::iterator_range<std::string::iterator> r = boost::algorithm::find_regex(s, boost::regex("\\w\\s\\w")); 
+  std::cout << r << std::endl; 
+} 
+下载源代码
+为了使用正则表达式，此程序使用了Boost C++ 库中的 boost::regex ， 这将在下一节介绍。
+
+
+
 
 
 
