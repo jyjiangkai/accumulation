@@ -96,7 +96,7 @@ int main()
 			case 2:
 				for(size_t i=0; i<THREADCOUNT; i++)
 				{
-					_g_cv.notify_one();
+				_g_cv.notify_one();
 				}
 				break;
 			case 3:

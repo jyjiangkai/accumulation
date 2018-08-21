@@ -1,3 +1,7 @@
+##Array
+array<int,10> ial;
+array<int,10> ial1={0,1,2,3};
+
 ##Vector
 vector<int> v
 1.push_back			在数组的最后添加一个数据
@@ -131,6 +135,9 @@ map<int,string> ID_Name;
 //使用{}赋值是从C++11开始的，因此编译器版本过低时会报错，如visual studio 2012
 map<int,string> ID_Name = {{2015,"Jim"}, {2016,"Tom"}, {2017,"Bob"}};
 
+###变量声明
+map<int,string> myMap;
+
 ###插入操作
 ID_Name[2015] = "Tom";
 ID_Name.insert(std::pair<int,string>(2018,"Tom"));
@@ -196,6 +203,38 @@ if(it != mymap.end())
 ###操作符
 operator: == != < <= > >=
 注意：对于==运算符，只有键值对以及顺序完全相等才算成立。
+
+##unordered_map
+#include<unordered_map>
+unordered_map<int,string> ID_Name;
+
+##c++中map与unordered_map的区别
+###内部实现机理
+map： map内部实现了一个红黑树，该结构具有自动排序的功能，因此map内部的所有元素都是有序的，红黑树的每一个节点都代表着map的一个元素，因此，对于map进行的查找，删除，添加等一系列的操作都相当于是对红黑树进行这样的操作，故红黑树的效率决定了map的效率。
+unordered_map: unordered_map内部实现了一个哈希表，因此其元素的排列顺序是杂乱的，无序的
+优缺点以及适用处
+
+map 
+优点： 
+有序性，这是map结构最大的优点，其元素的有序性在很多应用中都会简化很多的操作
+红黑树，内部实现一个红黑书使得map的很多操作在lgnlgn的时间复杂度下就可以实现，因此效率非常的高
+缺点： 
+空间占用率高，因为map内部实现了红黑树，虽然提高了运行效率，但是因为每一个节点都需要额外保存父节点，孩子节点以及红/黑性质，使得每一个节点都占用大量的空间
+适用处，对于那些有顺序要求的问题，用map会更高效一些
+unordered_map 
+优点： 
+因为内部实现了哈希表，因此其查找速度非常的快
+缺点： 
+哈希表的建立比较耗费时间
+适用处，对于查找问题，unordered_map会更加高效一些，因此遇到查找问题，常会考虑一下用unordered_map
+
+###结果分析
+运行效率方面：unordered_map最高，hash_map其次，而map效率最低
+占用内存方面：hash_map内存占用最低，unordered_map其次，而map占用最高
+
+###什么时候需要用hash_map，什么时候需要用map?
+总体来说，hash_map 查找速度会比map快，而且查找速度基本和数据数据量大小，属于常数级别;而map的查找速度是log(n)级别。并不一定常数就比log(n)小，hash还有hash函数的耗时，明白了吧，如果你考虑效率，特别是在元素达到一定数量级时，考虑考虑hash_map。但若你对内存使用特别严格，希望程序尽可能少消耗内存，那么一定要小心，hash_map可能会让你陷入尴尬，特别是当你的hash_map对象特别多时，你就更无法控制了，而且hash_map的构造速度较慢。
+现在知道如何选择了吗？权衡三个因素: 查找速度, 数据量, 内存使用。
 
 ##Queue
 boost::lockfree::queue<int, boost::lockfree::fixed_sized<false>, boost::lockfree::capacity<10000>> m_queue;    //boost库无锁队列的定义
