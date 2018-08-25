@@ -156,3 +156,16 @@ GODSF性能调优总结
 6.GLS 一个大锁修改成使用16把锁
 7.使用perfmap代替concurrentmap
 8.写日志时，拼写参数时,使用buffer复用,不需要每次都构造buffer
+
+
+RPC--远程过程调用
+远程过程调用是一个计算机通信协议，该协议允许运行于一台计算机的程序调用另一台计算机的子程序，而程序员无需额外地为这个交互作用编程。
+RPC是进程间的通讯方式，不用的进程有不同的地址空间。如果client和sever在同一台机器上，尽管物理地址是相同的，但是虚拟地址空间不同。如果他们在不同的主机上，物理地址空间也不同。
+
+一个正常的RPC过程可以分成下面几步： 
+1. client调用client stub，这是一次本地过程调用 
+2. client stub将参数打包成一个消息，然后发送这个消息。打包过程也叫做marshalling 
+3. client所在的系统将消息发送给server
+4. server的的系统将收到的包传给server stub 
+5. server stub解包得到参数。 解包也被称作unmarshalling 
+6. 最后server stub调用服务过程. 返回结果按照相反的步骤传给client
