@@ -63,6 +63,26 @@ int pop(Node* head, int* num)
 	return 1;
 }
 
+//链表反转
+Node* reverse(Node* head)
+{
+	Node* p1 = head->next;
+	Node* p2 = head->next;
+	Node* p3 = NULL;
+
+	head->next = NULL;
+	p3 = head;
+
+	while(p1 != NULL)
+	{
+		p1 = p1->next;
+		p2->next = p3;
+		p3 = p2;
+		p2 = p1;
+	}
+	return p3;
+}
+
 void show(Node* head)
 {
 	Node* p = NULL;
