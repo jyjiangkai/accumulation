@@ -9,11 +9,11 @@ class Singleton
         static T* singleton();
     protected:
         static void InitSingleton()
-	{
-	    pInstance = new T();
-	}
-	static pthread_once_t _ponce;
-	static T* pInstance;
+		{
+			pInstance = new T();
+		}
+		static pthread_once_t _ponce;
+		static T* pInstance;
 };
 
 template <typename T>
