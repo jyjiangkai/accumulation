@@ -1,13 +1,9 @@
 ##C++链表
 #include <iostream>
-#include "show.hpp"
-#include <unistd.h>
-#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 using namespace std;
-
 
 typedef struct node
 {
@@ -18,54 +14,69 @@ typedef struct node
 Node* init()
 {
 	Node* head = NULL;
-	head = (Node*)new(Node);
-	if(NULL == head)
-	{
-		return NULL;
-	}
-	head->data = 0;
-	head->next = NULL;
 	return head;
 }
 
-int push(Node* head, int* num)
+Node* push(Node* head, int* num)
 {
+	if (head == NULL)
+	{
+		head = new(Node);
+		if (head == NULL)
+		{
+			return NULL;
+		}
+		head->data = *num;
+		head->next = NULL;
+		return head;
+	}
+
 	Node* s = NULL;
 	s = new(Node);
 	if (NULL == s)
 	{
-		return 1;
+		return NULL;
 	}
 
 	s->data = *num;
-	s->next = head->next;
-	head->next = s;
+	s->next = head;
+	head = s;
 
-	return 0;
+	return head;
 }
 
-int pop(Node* head, int* num)
+Node* pop(Node* head, int* num)
 {
 	Node* p = NULL;
 	Node* q = NULL;
 	p = head;
 
+	if (head->data == *num)
+	{
+		head = head->next;
+		return head;
+	}
 	while(NULL != p->next)
 	{
 		if (p->next->data == *num)
 		{
 			q = p->next;
 			p->next = q->next;
-			return 0;
+			return head;
 		}
 		p = p->next;
 	}
-	return 1;
+	return NULL;
 }
 
 //链表反转
 Node* reverse(Node* head)
 {
+	if ((head == NULL)||(head->next == NULL))
+	{
+		return head;
+	}
+
 	Node* p1 = head->next;
 	Node* p2 = head->next;
 	Node* p3 = NULL;
@@ -80,7 +91,8 @@ Node* reverse(Node* head)
 		p3 = p2;
 		p2 = p1;
 	}
-	return p3;
+	head = p3;
+	return head;
 }
 
 void show(Node* head)
