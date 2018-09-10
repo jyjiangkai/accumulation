@@ -106,3 +106,54 @@ void show(Node* head)
 		p = p->next;
 	}
 }
+
+//链表元素值交换
+void swap(Node* i, Node* j) 
+{
+	int temp = 0;
+	temp = i->data;
+	i->data = j->data;
+	j->data = temp;
+}
+
+//链表快速排序
+Node* getSeperator(Node* start)
+{
+	if (NULL == start)
+	{
+		return NULL;
+	}
+	Node* bm = start;
+	Node* i = start;
+	Node* j = start->next;
+	while(j!=NULL)
+	{
+		if ((j->data) > (bm->data))
+		{
+			j = j->next;
+		}
+		else
+		{
+			i = i->next;
+			swap(i, j);
+			j = j->next;
+		}
+	}
+	swap(i, bm);
+	return i;
+}
+
+//链表快速排序
+Node* quickSort(Node* start, Node* end)
+{
+	Node* head = start;
+	Node* sep = NULL;
+
+	if(start != end)
+	{
+		sep = getSeperator(start);
+		quickSort(sep->next, end);
+		quickSort(start, sep);
+	}
+	return head;
+}
