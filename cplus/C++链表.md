@@ -117,43 +117,39 @@ void swap(Node* i, Node* j)
 }
 
 //链表快速排序
-Node* getSeperator(Node* start)
+Node* getsep(Node* start, Node* end)
 {
-	if (NULL == start)
+	if(NULL == start)
 	{
 		return NULL;
 	}
-	Node* bm = start;
 	Node* i = start;
 	Node* j = start->next;
-	while(j!=NULL)
+	Node* mid = start;
+
+	while(j!=end)
 	{
-		if ((j->data) > (bm->data))
-		{
-			j = j->next;
-		}
-		else
+		if ((j->data) < (mid->data))
 		{
 			i = i->next;
 			swap(i, j);
-			j = j->next;
 		}
+		j = j->next;
 	}
-	swap(i, bm);
+	swap(i, mid);
 	return i;
 }
 
 //链表快速排序
-Node* quickSort(Node* start, Node* end)
+Node* quicksort(Node* start, Node* end)
 {
 	Node* head = start;
 	Node* sep = NULL;
-
-	if(start != end)
+	if (start!=end)
 	{
-		sep = getSeperator(start);
-		quickSort(sep->next, end);
-		quickSort(start, sep);
+		sep = getsep(start, end);
+		quicksort(start, sep);
+		quicksort(sep->next, end);
 	}
 	return head;
 }
