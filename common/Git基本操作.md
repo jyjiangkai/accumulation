@@ -33,4 +33,9 @@ git config --list											//检查全局变量是否配置成功
 ssh-keygen -t rsa -C "jyjiangkai@163.com"					//生成公钥
 cat ~/.ssh/id_rsa.pub										//打开公钥文件，拷贝到工程的`SSH keys`中即生效
 
- 
+git pull --rebase  //从当前分支远端仓库向下拉取
+git pull --rebase origin master.digitalwm.debug  //从指定远端分支向下拉取
+git submodule update --init  //更新子仓
+
+git log命令显示从最近到最远的提交日志,如果嫌输出信息太多，看得眼花缭乱的，可以试试加上--pretty=oneline参数
+要重返未来，用git reflog查看命令历史，以便确定要回到未来的哪个版本。
