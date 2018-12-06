@@ -1,1 +1,26 @@
-todo
+sync.Once的作用是多次调用但只执行一次，sync.Once只有一个方法，Once.Do()，向Do传入一个函数，这个函数在第一次执行Once.Do()的时候会被调用，以后再执行Once.Do()将没有任何动作，即使传入了其它的函数，也不会被执行，如果要执行其它函数，需要重新创建一个sync.Once对象。
+
+sync.Once可以安全的在多个例程中并行使用。
+
+sync.Once能确保实例化对象Do方法在多线程环境只运行一次,内部通过互斥锁实现。
+
+代码实例：
+func main() {
+	var once sync.Once
+	onceBody := func() {
+		fmt.Println("Only once")
+	}
+	done := make(chan bool)
+	for i := 0; i < 10; i++ {
+		go func() {
+			once.Do(onceBody) // 多次调用只执行一次
+			done <- true
+		}()
+	}
+	for i := 0; i < 10; i++ {
+		<-done
+	}
+}
+
+// 输出结果：
+// Only once
