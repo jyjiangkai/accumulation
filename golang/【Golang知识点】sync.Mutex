@@ -6,11 +6,17 @@ sync.Mutex
 
 Mutex可以安全的在多个例程中并行使用。
 
-RWMutex提供了四个方法：
-func (*RWMutex) Lock // 写锁定
-func (*RWMutex) Unlock // 写解锁
-func (*RWMutex) RLock // 读锁定
-func (*RWMutex) RUnlock // 读解锁
+// Locker 接口包装了基本的 Lock 和 UnLock 方法，用于加锁和解锁。
+type Locker interface {
+    Lock()
+    Unlock()
+}
+
+// Lock 用于锁住 m，如果 m 已经被加锁，则 Lock 将被阻塞，直到 m 被解锁。
+func (m *Mutex) Lock()
+
+// Unlock 用于解锁 m，如果 m 未加锁，则该操作会引发 panic。
+func (m *Mutex) Unlock()
 
 //代码示例
 type SafeInt struct {
