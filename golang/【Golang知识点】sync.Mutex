@@ -1,0 +1,39 @@
+sync.Mutex
+
+互斥锁
+
+互斥锁用来保证在任一时刻，只能有一个例程访问某对象。Mutex 的初始值为解锁状态。Mutex 通常作为其它结构体的匿名字段使用，使该结构体具有Lock和Unlock方法。
+
+Mutex可以安全的在多个例程中并行使用。
+
+RWMutex提供了四个方法：
+func (*RWMutex) Lock // 写锁定
+func (*RWMutex) Unlock // 写解锁
+func (*RWMutex) RLock // 读锁定
+func (*RWMutex) RUnlock // 读解锁
+
+//代码示例
+type SafeInt struct {
+	sync.Mutex
+	Num int
+}
+
+func main() {
+	count := SafeInt{}
+	done := make(chan bool)
+	for i := 0; i < 10; i++ {
+		go func(i int) {
+			count.Lock() // 加锁，防止其它例程修改 count
+			count.Num += i
+			fmt.Print(count.Num, " ")
+			count.Unlock() // 修改完毕，解锁
+			done <- true
+		}(i)
+	}
+	for i := 0; i < 10; i++ {
+		<-done
+	}
+}
+
+// 输出结果（不固定）：
+// 2 11 14 18 23 29 36 44 45 45
