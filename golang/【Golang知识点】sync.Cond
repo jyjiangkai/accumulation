@@ -1,1 +1,59 @@
-todo
+sync.Cond
+
+条件等待
+
+　　条件等待通过 Wait 让例程等待，通过 Signal 让一个等待的例程继续，通过 Broadcast 让所有等待的例程继续。
+
+　　在 Wait 之前应当手动为 c.L 上锁，Wait 结束后手动解锁。为避免虚假唤醒，需要将 Wait 放到一个条件判断循环中。官方要求的写法如下：
+
+c.L.Lock()
+for !condition() {
+    c.Wait()
+}
+// 执行条件满足之后的动作...
+c.L.Unlock()
+
+　　Cond 在开始使用之后，不能再被复制。
+
+------------------------------
+
+type Cond struct {
+    L Locker // 在“检查条件”或“更改条件”时 L 应该锁定。
+} 
+
+// 创建一个条件等待
+func NewCond(l Locker) *Cond
+
+// Broadcast 唤醒所有等待的 Wait，建议在“更改条件”时锁定 c.L，更改完毕再解锁。
+func (c *Cond) Broadcast()
+
+// Signal 唤醒一个等待的 Wait，建议在“更改条件”时锁定 c.L，更改完毕再解锁。
+func (c *Cond) Signal()
+
+// Wait 会解锁 c.L 并进入等待状态，在被唤醒时，会重新锁定 c.L
+func (c *Cond) Wait()
+
+//代码示例
+func main() {
+	condition := false // 条件不满足
+	var mu sync.Mutex
+	cond := sync.NewCond(&mu)
+	// 让例程去创造条件
+	go func() {
+		mu.Lock()
+		condition = true // 更改条件
+		cond.Signal()    // 发送通知：条件已经满足
+		mu.Unlock()
+	}()
+	mu.Lock()
+	// 检查条件是否满足，避免虚假通知，同时避免 Signal 提前于 Wait 执行。
+	for !condition {
+		// 等待条件满足的通知，如果收到虚假通知，则循环继续等待。
+		cond.Wait() // 等待时 mu 处于解锁状态，唤醒时重新锁定。
+	}
+	fmt.Println("条件满足，开始后续动作...")
+	mu.Unlock()
+}
+
+// 输出结果：
+// 条件满足，开始后续动作...
