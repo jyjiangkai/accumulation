@@ -1,0 +1,40 @@
+sync.RWMutex
+
+RWMutex读写锁，该锁可以加多个读锁或者一个写锁，其经常用于读次数远远多于写次数的场景．写锁权限高于读锁，有写锁时优先进行写锁定。
+
+基本遵循两大原则：
+1、可以随便读，多个goroutine同时读
+2、写的时候，啥也不能干。不能读也不能写
+
+RWMutex提供了四个方法：
+func (*RWMutex) Lock // 写锁定
+func (*RWMutex) Unlock // 写解锁
+func (*RWMutex) RLock // 读锁定
+func (*RWMutex) RUnlock // 读解锁
+
+//代码实例：线程安全map
+type SafeStringMap struct {
+	sync.RWMutex
+	M map[string]string
+}
+
+var StringMap = &SafeStringMap{M:make(map[string]string)}
+
+func (this *SafeStringMap) Get(key string) (string, bool) {
+	this.RLock()
+	defer this.RUnlock()
+	v, exists := this.M[key]
+	return v, exists
+}
+
+func (this *SafeStringMap) Set(k string, v string) {
+	this.Lock()
+	defer this.Unlock()
+	this.M[k] = v
+}
+
+func (this *SafeStringMap) Get(key string) map[string]string {
+	this.RLock()
+	defer this.RUnlock()
+	return this.M
+}
