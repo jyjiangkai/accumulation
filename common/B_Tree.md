@@ -29,12 +29,10 @@ B_Tree_Node *alloact_Node()
 	return newNode;
 }
 ```
-//从以当前结点为根结点的子树中，寻找k所在的结点，
-/*
-curNode 表示该当前子树的根结点，k 是要查找的关键字， index用来保存k在该结点中的索引
-首先在当前结点中查找 ，若在该结点中，则直接返回该结点指针；如果没有找到，而且该结点是叶子结点，则返回NULL
-否则，在它的适当的孩子结点中查找
-*/
+从以当前结点为根结点的子树中，寻找k所在的结点   
+curNode 表示该当前子树的根结点，k 是要查找的关键字， index用来保存k在该结点中的索引   
+首先在当前结点中查找 ，若在该结点中，则直接返回该结点指针；如果没有找到，而且该结点是叶子结点，则返回NULL，否则，在它的适当的孩子结点中查找   
+```
 B_Tree_Node * searchNode(B_Tree_Node *curNode, int k, int &index)
 {
 	int i = 0;
@@ -50,7 +48,8 @@ B_Tree_Node * searchNode(B_Tree_Node *curNode, int k, int &index)
 	searchNode(curNode->child[i],k,index);
  
 }
- 
+```
+
 //splitNode_p是被分裂结点的父结点，i是索引为i的孩子为满，需要被分裂
 //被分裂的结点是满的，那么它的n = 2*T - 1;被分裂为两个T-1个关键字的子结点，同时它的中间元素被提升到其父节点中
 void BTree_Child_Split(B_Tree_Node *splitNode_p, int index_child)
