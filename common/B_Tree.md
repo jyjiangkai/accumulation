@@ -1,6 +1,5 @@
-// B_Tree.cpp : 定义控制台应用程序的入口点。
-//
- 
+// B_Tree.cpp : 定义控制台应用程序的入口点   
+```
 #include "stdafx.h"
 #include <stdio.h>
 #include <iostream>
@@ -29,6 +28,7 @@ B_Tree_Node *alloact_Node()
 		newNode->child[i] = NULL;
 	return newNode;
 }
+```
 //从以当前结点为根结点的子树中，寻找k所在的结点，
 /*
 curNode 表示该当前子树的根结点，k 是要查找的关键字， index用来保存k在该结点中的索引
