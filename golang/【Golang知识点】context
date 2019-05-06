@@ -1,0 +1,119 @@
+## context
+### across goroutines
+    1. Cancel slow or block operations
+    2. store request scope values
+    
+**使用场景:**
+
+完成一项任 务需要多个goroutines协作时，goroutines之间关系形成一棵树。
+
+当子节点运行时间较长时，父节点可能希望取消子节点的操作。
+
+如果只有一层子节点，可以用quitCh。
+
+如果子节点是一棵子树的话会比较麻烦，context可以简化取消操作。
+
+context像病毒散布在标准库中，所以不管愿不愿意都得理解context。
+
+**API**
+```
+type Context interface {
+    // Deadline returns the time when work done on behalf of this context
+    // should be canceled. Deadline returns ok==false when no deadline is
+    // set.
+    Deadline() (deadline time.Time, ok bool)
+    // Done returns a channel that's closed when work done on behalf of this
+    // context should be canceled.
+    Done() <-chan struct{}
+    // Err returns a non-nil error value after Done is closed.
+    Err() error
+    // Value returns the value associated with this context for key.
+    Value(key interface{}) interface{}
+}
+```
+* Done会返回一个channel，当该context被取消的时候，该channel会被关闭，同时对应的使用该context的routine也应该结束并返回。
+* Context中的方法是协程安全的，这也就代表了在父routine中创建的context，可以传递给任意数量的routine并让他们同时访问。
+* Deadline会返回一个超时时间，routine获得了超时时间后，可以对某些io操作设定超时时间。
+* Value可以让routine共享一些数据，当然获得数据是协程安全的。
+
+要创建context树，第一步是要有一个根结点。context.Background函数的返回值是一个空的context，经常作为树的根结点，它一般由接收请求的第一个routine创建，不能被取消、没有值、也没有过期时间。
+```
+func Background() Context
+```
+派生子ctx
+```
+func WithCancel(parent Context) (ctx Context, cancel CancelFunc)
+func WithDeadline(parent Context, deadline time.Time) (Context, CancelFunc)
+func WithTimeout(parent Context, timeout time.Duration) (Context, CancelFunc)
+func WithValue(parent Context, key interface{}, val interface{}) Context
+```
+
+### 父节点操作
+其中特别注意CancelFunc, 父节点调用
+```
+type CancelFunc func()
+```
+
+### 子节点操作
+调用CancelFunc对象将撤销对应的Context对象，这样父结点的所在的环境中，获得了撤销子节点context的权利，当触发某些条件时，可以调用CancelFunc对象来终止子结点树的所有routine。在子节点的routine中，需要用类似下面的代码来判断何时退出routine：
+```
+select {
+    case <-cxt.Done():
+    // do some cleaning and return
+}
+```
+WithDeadline和WithTimeout比WithCancel多了一个时间参数，它指示context存活的最长时间。如果超过了过期时间，会自动撤销它的子context。所以context的生命期是由父context的routine和deadline共同决定的。
+
+每层调用保存一份ctx，通过ctx.Done来等待取消信号，ctx之间通过链表连接形成一棵树。
+
+### 标准库实例
+```
+func OpenDB(c driver.Connector) *DB {
+    ctx, cancel := context.WithCancel(context.Background())
+    db := &DB{
+        connector: c,
+        openerCh: make(chan struct{}, connectionRequestQueueSize),
+        resetterCh: make(chan *driverConn, 50),
+        lastPut: make(map[*driverConn]string),
+        connRequests: make(map[uint64]chan connRequest),
+        stop: cancel, // CancelFunc
+    }
+    go db.connectionOpener(ctx) // 子节点
+    go db.connectionResetter(ctx) // 子节点
+    return db
+}
+```
+
+```
+func (db *DB) Close() error {
+    // ...
+    db.stop() // 取消所有子节点
+    return err
+}
+```
+
+```
+func (d *Dialer) DialContext(ctx context.Context, network, address string) (Conn, error)
+    if ctx == nil {
+        panic("nil context")
+    }
+    deadline := d.deadline(ctx, time.Now()) // 判断父节点给的Deadline还剩多少
+    if !deadline.IsZero() {
+        if d, ok := ctx.Deadline(); !ok || deadline.Before(d) {
+            subCtx, cancel := context.WithDeadline(ctx, deadline)
+            defer cancel()
+            ctx = subCtx
+        }
+    }
+    // ...
+}
+```
+
+### 使用原则
+使用Context的程序包需要遵循如下的原则来满足接口的一致性以及便于静态分析。
+
+* 不要把Context存在一个结构体当中，显式地传入函数。Context变量需要作为第一个参数使用，一般命名为ctx；
+* 即使方法允许，也不要传入一个nil的Context，如果你不确定你要用什么Context的时候传一个context.TODO；
+* 使用context的Value相关方法只应该用于在程序和接口中传递的和请求相关的元数据，不要用它来传递一些可选的参数；
+* 同样的Context可以用来传递到不同的goroutine中，Context在多个goroutine中是安全的；
+
