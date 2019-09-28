@@ -1,0 +1,499 @@
+SQL语句包含的操作如下：
+1.数据查询语句（DQL）：SELECT
+2.数据操作语句（DML）：INSERT添加、UPDATE修改、DELETE删除
+3.数据定义语句（DDL）：CREATE创建、ALTER修改、DROP删除、RENAME重命名、TRUNCATE截取
+4.事务控制语句（TCL）：COMMIT提交、ROLLBACK回滚、SAVEPOINT存储点
+5.权限管理语句：GRANT授权、REVOKE取消授权
+
+时间安排：
+day1
+数据库理论+环境搭建
+
+day2
+查询语句（第一章到第四章）
+
+day3
+查询语句 （第五章到第八章）
+
+day4
+DML
+DDL表操作
+约束
+视图
+索引
+
+day5
+存储过程（数据库编程）
+
+
+
+第一章 SQL的语法规范
+1.sql语句不区分大小写，但是写作时关键字、系统保留字、函数名称大写，表名、列名小写
+2.使用空格或者是换行隔开每个单词，效果是一样的，应该在合适的位置换行，不要盲目换行也不要不换行。
+每个子句单独占一行，WHERE子句中的每个条件单独占一行，子查询单独占一行
+3.复杂的语句最好加上注释进行说明
+#单行注释
+-- 单行注释（空格必须要有）
+/*
+多行注释
+*/
+4.sql语句以分号作为分隔符，每个语句必须以分号结束
+
+
+/*
+select 列名1,列名2,……,列名n                                                            --定义查询数据所在的列
+from 表名1,表名2,……,表名n                                                              --定义查询数据所在的表
+where 限定条件1 and/or 限定条件2 and/or ……                                   --定义查询数据的条件范围
+order by 列名1 [asc/desc],列名2 [asc/desc],……                                 --定义查询结果的排序方式
+limit [m,]n                                                                                           --定义查询结果显示的行号的范围
+*/
+
+
+第二章 SELECT基础
+
+1.*代表所有列
+SELECT * FROM emp;
+SELECT * FROM dept;
+SELECT * FROM salgrade;
+
+#由于员工与员工之间存在上下级的关系，要将这样的关系体现出来
+#需要使用员工的外键对应员工的主键，表示员工的上级是谁
+#同一类事物内部可能出现联系，要将这样的关系体现出来使用本张表的外键引用本张表的主键
+
+2.查询指定的列
+SELECT ename,job,sal,deptno FROM emp;
+SELECT deptno,job,ename FROM emp;
+
+3.可以对数据进行运算
+SELECT ename,job,sal,12*sal FROM emp;
+
+4.空值参与运算得到结果也是空值
+SELECT ename,job,sal,comm,12*(sal+comm) FROM emp;
+
+5.列的别名
+#给列起别名可以方便后续进行操作，名称复杂的列或者是运算表达式得到列可以起别名
+/*
+列名 别名
+列名 as 别名
+如果别名中包含特殊字符，比如空格，需要使用双引号
+*/
+SELECT ename,job,comm jiangjin,deptno bumen FROM emp;
+SELECT ename,job,comm AS jiangjin,deptno AS bumen FROM emp;
+
+SELECT ename,job,comm 奖金,deptno 部门 FROM emp;
+
+SELECT ename,job,sal,comm,12*(sal+comm) AS "annual income" FROM emp;
+
+6.表达式
+#任何数据都可以看作是表达式，按照数据类型的不同可以分为数字表达式、字符表达式和日期表达式
+#通常意义上的表达式是指手动输入的表达式，手动输入数字可以直接写，但手动输入字符串或日期需要加上引号
+#查询语句中可以直接查询手动输入的表达式，并且这些表达式可以跟表中数据没有关系
+
+SELECT 234,89*34-87,123.456/0.65 FROM emp;
+#并且手动输入的表达式会按照表中数据的行数来显示，与表中数据对应
+
+#手动输入字符串或日期必须加上双引号
+SELECT 'who are you','2019-09-27' FROM emp;
+
+#如果要查询的数据都是手动输入，与表中数据无关，可以不写from
+SELECT 2145,'hello world';
+
+#oracle由于语法要求比较严格，所以查询语句必须select和from，如果oracle中有上述需求
+#那么可以从一张空表dual查询数据，保证语句的完整性
+
+SELECT ename,'ename' FROM emp;
+
+7.distinct去重
+#当查询结果中有重复数据(行)时，可以使用distinct去掉重复数据
+SELECT deptno FROM emp;
+SELECT DISTINCT deptno FROM emp;
+
+SELECT job FROM emp;
+SELECT DISTINCT job FROM emp;
+
+#多列去重
+SELECT DISTINCT deptno,job FROM emp;
+
+#普通列不能和去重的列一起查询，因为行数不匹配
+SELECT ename,DISTINCT deptno FROM emp;
+
+8.limit通过行号限定显示的范围
+#limit写在查询语句的最后，limit m,n 表示在查询结果中从第m行开始显示n行数据
+#第一行的行号为0，第二行的行号是1，依次类推
+SELECT * FROM emp
+LIMIT 3,4;
+
+#limit n 表示显示前n行数据。m如果不写，默认值为0
+SELECT * FROM emp
+LIMIT 2;
+
+
+第三章 限定和排序
+
+1.where子句
+/*
+where子句后面必须是一个完整的逻辑表达式，结果只能有两种：是或非、真或假、条件成立或不成立、true或false、1或0
+在数据库中where子句后面通常使用一个比较运算作为条件是否成立的逻辑表达式，最终返回满足条件的数据
+常见的比较运算：
+=   >   <   >=   <=   !=(<>)
+
+通常使用表中的某些列作为条件进行比较，返回列中数据满足条件的行
+*/
+#查询20号部门的员工信息
+SELECT * FROM emp
+WHERE deptno = 20;
+
+#查询工资高于2000的员工信息
+SELECT * FROM emp
+WHERE sal > 2000;
+
+#查询职位是clerk的员工信息
+SELECT * FROM emp
+WHERE job = 'CLERK';
+#手动输入字符串或日期要加上引号
+#理论上，字符串中的英文字母要区分大小写，但是mysql在windows的操作系统中是不区分字符的小写的。
+#如果将mysql安装到linux系统下，则也要区分大小写；oracle无论什么操作字符串都要区分大小写。
+
+SELECT * FROM emp
+WHERE hiredate <= '1981-05-01';
+
+#无论如何，比较条件的两边数据类型必须一致
+#oracle中如果比较的数据类型不一致，会直接报错；mysql不会报错，但这样的查询没有意义
+SELECT * FROM emp
+WHERE ename = 0;
+
+#作为比较条件的列可以不出现在select后面进行查询，但是这样的查询结果不直观
+SELECT ename,job,deptno FROM emp
+WHERE sal < 1000;
+
+#列的别名不能出现在where子句中
+/*
+select ename,job,sal,12*sal nianxin from emp
+where nianxin < 30000;
+*/
+SELECT ename,job,sal,12*sal nianxin FROM emp
+WHERE 12*sal < 30000;
+
+SELECT * FROM emp
+WHERE sal < comm;
+
+2.特殊的比较运算
+
+#in(value1,value2,...,valueN) 列表匹配
+SELECT * FROM emp
+WHERE job IN ('SALESMAN','MANAGER','PRESIDENT');
+
+#between 最小值 and 最大值，范围匹配
+SELECT * FROM emp
+WHERE sal BETWEEN 1500 AND 3000;
+
+#like,对字符串进行模糊匹配
+#通配符：能够代表其他字符的特殊符号
+#% 代表任意个任意字符
+#_ 代表一个任意字符
+
+SELECT * FROM emp
+WHERE ename LIKE 'S%';
+
+SELECT * FROM emp
+WHERE ename LIKE '%S';
+
+SELECT * FROM emp
+WHERE ename LIKE '%A%';
+
+SELECT * FROM emp
+WHERE ename LIKE '_A%';
+
+SELECT * FROM emp
+WHERE ename LIKE '____';
+
+#is null，匹配空值，不能写成 = null
+SELECT * FROM emp
+WHERE comm IS NULL;
+
+3.逻辑运算
+
+#and，与运算。多个条件必须同时满足才能返回结果
+SELECT * FROM emp
+WHERE deptno = 20
+AND sal > 2000;
+
+#or，或运算。多个条件只需要满足任意一个就能返回结果
+SELECT * FROM emp
+WHERE deptno = 20
+OR sal > 2000;
+
+#not，非运算。返回不满足条件的结果
+SELECT * FROM emp
+WHERE NOT deptno = 20;
+
+#not通常跟特殊的比较运算一起使用，并且not可以和这些特殊比较运算符结合使用
+SELECT * FROM emp
+WHERE NOT sal BETWEEN 1500 AND 3000;
+
+SELECT * FROM emp
+WHERE sal NOT BETWEEN 1500 AND 3000;
+
+4.运算的优先级：数学运算>比较运算>NOT>AND>OR
+#使用括号改变优先级
+SELECT * FROM emp
+WHERE deptno = 20
+OR sal > 2000
+AND job IN ('CLERK','MANAGER');
+
+SELECT * FROM emp
+WHERE (deptno = 20
+OR sal > 2000)
+AND job IN ('CLERK','MANAGER');
+
+5.排序ORDER BY
+#order by后面跟列名，定义按照哪些列中的数据进行排序
+#asc表示升序排列，默认可以不写
+#desc表示降序排列
+SELECT * FROM emp
+ORDER BY sal ASC;
+
+#字符串和日期也能够排序
+SELECT * FROM emp
+ORDER BY ename DESC;
+
+SELECT * FROM emp
+WHERE deptno = 30
+ORDER BY hiredate;
+
+#可以使用别名进行排序
+SELECT ename,job,sal,12*sal nianxin FROM emp
+ORDER BY nianxin DESC;
+
+#可以使用未查询的列作为排序条件，但是这样的结果不直观
+SELECT ename,job,sal FROM emp
+ORDER BY deptno;
+
+#多列排序，先按照第一列进行排序，第一列数据相同的按照第二列排序，……
+SELECT * FROM emp
+ORDER BY deptno,sal DESC;
+
+#limit通常和排序一起使用，先排序再按照行号找出某些数据
+#找到工资最低的3个人
+SELECT * FROM emp
+ORDER BY sal ASC
+LIMIT 3;
+
+SELECT * FROM emp
+ORDER BY sal ASC
+LIMIT 1,1;
+
+【练习】
+1.查询薪水大于等于1500，且工作类别是SALESMAN的雇员信息
+SELECT * FROM emp
+WHERE sal >= 1500
+AND job = 'SALESMAN';
+
+2.查询年薪大于30000，工作类别不是MANAGER的雇员信息
+SELECT ename,job,sal,12*sal nianxin,deptno FROM emp
+WHERE 12*sal > 30000
+AND job != 'MANAGER';
+
+3.查询薪水在1500到3000之间，工作类别以“M”开头的雇员信息
+SELECT * FROM emp
+WHERE sal BETWEEN 1500 AND 3000
+AND job LIKE 'M%';
+
+4.查询佣金为空并且部门号为20或30的雇员信息(佣金=薪水SAL+津贴COMM)   
+SELECT ename,job,sal,comm,sal+comm yongjin,deptno FROM emp
+WHERE sal+comm IS NULL
+AND (deptno = 20
+OR deptno = 30);
+
+SELECT ename,job,sal,comm,sal+comm yongjin,deptno FROM emp
+WHERE sal+comm IS NULL
+AND deptno IN (20,30);
+
+5.查询佣金不为空或者部门号为20的雇员信息，要求按照薪水降序排列 (佣金=薪水+津贴)
+SELECT ename,job,sal,comm,sal+comm yongjin,deptno FROM emp
+WHERE sal+comm IS NOT NULL
+OR deptno = 20
+ORDER BY sal DESC;
+
+6.查询年薪大于30000工作类别不是MANAGER，且部门号不是10或40的雇员信息，要求按照雇员姓名进行排列
+SELECT ename,job,sal,12*sal nianxin,deptno FROM emp
+WHERE 12*sal > 30000
+AND job != 'MANAGER'
+AND (deptno != 10
+AND deptno != 40);
+
+SELECT ename,job,sal,12*sal nianxin,deptno FROM emp
+WHERE 12*sal > 30000
+AND job != 'MANAGER'
+AND deptno NOT IN (10,40)
+ORDER BY ename;
+
+7.查询30号部门工资排名前三的员工
+SELECT * FROM emp
+WHERE deptno = 30
+ORDER BY sal DESC
+LIMIT 3;
+
+
+第四章 单行函数
+
+#函数就是功能，将特定的功能定义成函数，在使用该功能的时候可以通过调用函数名称并且给函数的参数赋值的方式来实现
+#给参数的赋值不同，函数的计算结果也不同，开发人员将常用的数据运算或处理的功能定义成函数，供我们来使用
+
+#单行函数是指针对表中的每一行数据进行运算，分别返回结果。
+
+1.数学函数
+#round(m,n) 将数字m精确到小数点后n位
+SELECT ROUND(123.456,1),ROUND(123.456,2),ROUND(123.456,0);
+
+#n可以不写，默认精确到整数
+SELECT ROUND(123.456);
+
+#n可以为负数，表示精确到小数点前n位
+SELECT ROUND(127.456,-1),ROUND(183.456,-2),ROUND(923.456,-3);
+
+#truncate(m,n) 将数字m截取到小数点后n位
+SELECT TRUNCATE(123.456,1), TRUNCATE(123.456,2),TRUNCATE(123.456,0);
+
+SELECT POW(5,2),POW(3,4),POW(100,-2),POW(49,1/2);
+
+SELECT MOD(23,5),MOD(28,3),CEIL(5),CEIL(5.6),FLOOR(5),FLOOR(5.7);
+
+SELECT RAND();
+
+
+2.字符函数
+
+#concat(x1,x2,...,xN) 将多个字符串拼接在一起
+SELECT CONCAT('I love',' China');
+SELECT CONCAT(ename,job) FROM emp;
+SELECT CONCAT(ename,' is a ',job) FROM emp;
+
+#length(x) 返回字符串x的长度
+SELECT LENGTH('I love China');
+SELECT ename,LENGTH(ename) FROM emp;
+
+SELECT * FROM emp
+WHERE LENGTH(ename) = 5;
+
+#left(x,n) 截取字符串x最左边的n个字符
+#right(x,n) 截取字符串x最右边的n个字符
+SELECT ename,LEFT(ename,1),RIGHT(ename,3) FROM emp;
+
+#mid(x,m,n) 从字符串x的第m个字符开始截取长度为n的字符串
+SELECT ename,MID(ename,2,2) FROM emp;
+
+#n可以不写，默认截取后面所有的字符
+SELECT ename,MID(ename,3) FROM emp;
+
+#m可以为负数，表示从后向前数第m个字符开始截取
+SELECT ename,MID(ename,-2,1) FROM emp;
+
+SELECT REPLACE('I love you','I','He');
+SELECT LPAD('abcde',15,'x');
+
+
+3.日期函数
+
+#curdate()当前日期，curtime()当前时间
+SELECT CURDATE(),CURTIME();
+
+#now() 当前的日期+时间
+SELECT NOW();
+
+#day(d),month(d),year(d),获取日期d的天数、月份和年份
+SELECT DAY(CURDATE()),MONTH(CURDATE()),YEAR(CURDATE());
+
+SELECT ename,hiredate,MONTH(hiredate) FROM emp;
+
+SELECT * FROM emp
+WHERE DAY(hiredate) <= 15;
+
+#date_add(d,interval n unit) 可以给日期d添加n个时间单位unit
+#时间单位可以是year、month、day、week、hour、minute、second
+#如果n为负数表示减去相应的时间单位
+SELECT DATE_ADD(CURDATE(),INTERVAL 5 YEAR);
+SELECT DATE_ADD(CURDATE(),INTERVAL 7 MONTH);
+SELECT DATE_ADD(CURDATE(),INTERVAL 88 DAY);
+SELECT DATE_ADD(CURDATE(),INTERVAL -23 WEEK);
+
+
+4.条件判断函数
+
+#ifnull(x,y) 判断x是否为空，如果为空返回y，否则返回x
+SELECT ename,job,sal,comm,12*(sal+IFNULL(comm,0)) FROM emp;
+
+#if(条件,value1,value2) 判断条件是否成立，如果成立返回value1，否则返回value2
+SELECT ename,job,sal,deptno,IF(sal>2000,'高富帅','矮矬穷') FROM emp;
+
+#公司业绩不错，考虑给员工涨薪，职位是clerk的员工涨薪20%，salesman涨薪30%，manager涨薪35%，其他人不变
+SELECT ename,job,sal,deptno,
+IF(job='CLERK',sal*1.2,IF(job='SALESMAN',sal*1.3,IF(job='MANAGER',sal*1.35,sal))) addsal
+FROM emp;
+
+【作业】
+1.用一个SQL语句完成在字符串”hello”左右各添加5个*，使其最终返回*****hello*****(用多种方法实现)
+2.写一条SQL语句返回”abcdefg”的后三位字符“efg”(用多种方法实现)
+3.查询emp表，显示删除掉第一个字符后的员工姓名（如员工ALLEN，显示为LLEN）（多种方法实现）
+4.查询emp表，显示姓名中不包含字符’A’的员工信息
+5.查询emp表，使用员工姓名的第一个字符将员工姓名从左边补齐到长度为10
+6.查询emp表，显示下半年入职的员工信息
+7.查询在周一入职的员工信息
+8.写一条SQL语句查询员工编号、员工姓名、工资、部门号，
+要求当员工在10号部门时，显示’财务部’，20号部门时显示’研发部’，
+30号部门时显示’销售部’，其余部门显示’未知部门’
+
+
+
+
+第五章 多表查询
+
+
+
+
+
+
+
+
+
+
+第六章 多行函数
+
+
+
+
+
+
+
+
+
+第七章 子查询
+
+
+
+
+
+
+
+
+
+
+第八章 集合操作
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
