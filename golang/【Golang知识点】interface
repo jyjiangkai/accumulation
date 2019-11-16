@@ -1,0 +1,330 @@
+##概述
+Go语言中的接口是一组方法的集合。它有两个特点:
+接口本质是一种自定义类型，接口只关心做什么，不关心怎么做。
+接口中没有数据成员，只有方法（也可以为空）。
+接口是完全抽象的，因此不能将其实例化。但是可以创建一个类型为接口的变量，它可以被赋值为任何满足该接口类型的实际类型的值。接口的重要特性包括：
+只要某个类型实现了接口所有的方法，那么我们就说该类型实现了此接口。该类型的值可以赋给该接口的值。
+作为1的推论，任何类型的值都可以赋值给空接口interface{}。
+比较C++和Go，Go不支持继承和多态，但通过组合和接口实现了类似的语言特性。
+**Go程序抽象的基本原则依赖于接口而不是实现，优先使用组合而不是继承**
+
+##方法
+Go语言中同时有函数和方法。一个方法就是一个包含了接受者的函数，接受者可以是命名类型或者结构体类型的一个值或者是一个指针。所有给定类型的方法属于该类型的方法集。
+```
+type User struct {
+  Name  string
+  Email string
+}
+
+func (u User) Notify() error
+// User 类型的值可以调用接受者是值的方法
+damon := User{"AriesDevil", "ariesdevil@xxoo.com"}
+damon.Notify()
+// User 类型的指针同样可以调用接受者是值的方法
+alimon := &User{"A-limon", "alimon@ooxx.com"}
+alimon.Notify()
+```
+User的结构体类型，定义了一个该类型的方法叫做Notify，该方法的接受者是一个User类型的值。要调用Notify方法我们需要一个User类型的值或者指针。
+**（注意：当接受者是值时，该方法操作对应接受者的值的副本，意思就是即使你使用了指针调用函数，但是函数的接受者是值类型，所以函数内部操作还是对副本的操作，而不是指针操作）**
+我们可以修改Notify方法，让它的接受者使用指针类型：
+```
+func (u *User) Notify() error
+// User 类型的指针可以调用接受者是指针的方法
+damon := &User{"AriesDevil", "ariesdevil@xxoo.com"}
+damon.Notify()
+// User 类型的值也可以调用接受者是指针的方法
+alimon := User{"A-limon", "alimon@ooxx.com"}
+alimon.Notify()
+```
+再来一次之前的调用。**（注意：当接受者是指针时，即使用值类型调用那么函数内部也是对指针的操作）**
+
+**总结：**
+一个结构体的方法的接收者可能是类型值或指针
+如果接收者是值，无论调用者是类型值还是类型指针，修改都是值的副本
+如果接收者是指针，则调用者修改的是指针指向的值本身。
+
+##接口实现
+```
+type User struct {
+    Name  string
+    Email string
+}
+
+type Notifier interface {
+    Notify() error
+}
+
+func (u *User) Notify() error {
+    fmt.Printf("User: Sending User Email To %s<%s>\n", u.Name, u.Email)
+    return nil
+}
+
+func main() {
+    var iNotifer Notifier = User{
+        Name: "AriesDevil",
+        Email: "ariesdevil@xxoo.com",
+    }
+    iNotifer.Notify()
+}
+
+// Output:
+cannot use User literal (type User) as type Notifier in assignment:
+User does not implement Notifier (Notify method has pointer receiver)
+```
+上述代码是编译不过的，见Output，编译错误关键信息Notify method has pointer receiver。下面是go语言规范里定义的规则，这些规则用来说明类型的值或者指针是否实现了该接口：
+* 类型*T的可调用方法集包含接受者为*T或T的所有方法集
+* 类型T的可调用方法集包含接受者为T的所有方法
+* 类型T的可调用方法集不包含接受者为*T的方法
+
+也就是说：
+* 接收者是指针*T时，接口的实例必须是指针
+* 接收者是值T时，接口的实例可以是指针也可以是值
+
+##接受者类型选择
+####何时使用值类型
+* 如果接受者是一个map，func或者chan，使用值类型(因为它们本身就是引用类型)。
+* 如果接受者是一个slice，并且方法不执行reslice操作，也不重新分配内存给slice，使用值类型。
+* 如果接受者是一个小的数组或者原生的值类型结构体类型(比如time.Time类型)，而且没有可修改的字段和指针，又或者接受者是一个简单地基本类型像是int和string，使用值类型就好了。
+
+####何时使用指针类型
+* 如果方法需要修改接受者，接受者必须是指针类型。
+* 如果接受者是一个包含了sync.Mutex或者类似同步字段的结构体，接受者必须是指针，这样可以避免拷贝。
+* 如果接受者是一个大的结构体或者数组，那么指针类型接受者更有效率。(多大算大呢？假设把接受者的所有元素作为参数传给方法，如果你觉得参数有点多，那么它就是大)。
+
+**当你看完这个还是有疑虑，还是不知道该使用哪种接受者，那么记住使用指针接受者。**
+
+##接口实现多态
+```
+//下面定义了一个Writer的interface，如果要实现这个接口，只需要实现Write方法就可以了
+type Writer interface {
+    Write(p []byte) (n int, err error)
+}
+//下面File和Buffer都实现了Writer接口，所以Writer有两套实现
+//类型不需要显式声明它实现了某个接口，接口被隐式地实现，多个类型可以实现同一个接口
+type File struct {
+    *file // os specific
+}
+func (f *File) Write(b []byte) (n int, err error) {
+    ......
+    return n, err
+}
+type Buffer struct {
+    buf       []byte // contents are the bytes buf[off : len(buf)]
+    off int // read at &buf[off], write at &buf[len(buf)]
+    bootstrap [64]byte // memory to hold first slice; helps small buffers avoid allocation.
+    lastRead  readOp // last read operation, so that Unread* can work correctly.
+}
+func (b *Buffer) Write(p []byte) (n int, err error) {
+    ......
+    return copy(b.buf[m:], p), nil
+}
+//下面是调用Write的地方，函数的第一个参数是Writer类型，只需要传入File或Buffer的指针就可以调用对应的实现了，这样就实现多态的特性，也就是面向接口编程
+func myWrite(w Writer, p []byte)  (n int, err error){
+    return w.Write(p)
+}
+```
+##接口的内部实现
+空Interface和非空Interface的内部实现是不一样的
+####空Interface的底层实现
+在Go语言的源码位置： src\runtime\runtime2.go
+```
+type eface struct {
+    _type *_type //类型指针
+    data  unsafe.Pointer //数据区域指针
+}
+type _type struct {
+    size       uintptr
+    ptrdata    uintptr // size of memory prefix holding all pointers
+    hash       uint32
+    tflag      tflag
+    align      uint8
+    fieldalign uint8
+    kind       uint8
+    alg        *typeAlg
+    // gcdata stores the GC type data for the garbage collector.
+    // If the KindGCProg bit is set in kind, gcdata is a GC program.
+    // Otherwise it is a ptrmask bitmap. See mbitmap.go for details.
+    gcdata    *byte
+    str       nameOff
+    ptrToThis typeOff
+}
+```
+可以看到对于空的interface，其实就是两个指针。第一个保存类型基本信息，包括类型的大小，对齐信息，类型的编号；第二个保存数据信息。
+
+####非空Interface的底层实现
+```
+type iface struct {
+    tab  *itab
+    data unsafe.Pointer
+}
+type itab struct {
+    inter  *interfacetype
+    _type  *_type
+    link   *itab
+    bad    int32
+    inhash int32 // has this itab been added to hash?
+    fun    [1]uintptr // variable sized
+}
+type interfacetype struct {
+    typ     _type
+    pkgpath name
+    mhdr    []imethod //接口带有的函数名
+}
+```
+对于非空的interface来说，也是两个指针，第一个保存类型基本信息，其中有一个fun表示方法表。
+
+###Interface的赋值过程
+我们也能通过Interface的赋值过程发现空接口和非空接口的差异
+```
+package main
+import (
+    "fmt"
+    "reflect"
+)
+func main() {
+    var inter int = 1
+    var ifacer interface{}
+    ifacer = inter
+    fmt.Println("Type: ", reflect.TypeOf(ifacer), ", ", "Value: ", ifacer)
+}
+```
+go build -gcflags -S code.go生成对应汇编
+```
+0x002f 00047 (/home/jiangkai/gopath/src/jiangkai/main3.go:8)    FUNCDATA    $0, gclocals·7d2d5fca80364273fb07d5820a76fef4(SB)
+0x002f 00047 (/home/jiangkai/gopath/src/jiangkai/main3.go:8)    FUNCDATA    $1, gclocals·0b08742e45dfdb61d93d1cdb10337c57(SB)
+0x002f 00047 (/home/jiangkai/gopath/src/jiangkai/main3.go:8)    FUNCDATA    $3, gclocals·4342db1230674fd52e43f4d0ff20a7a4(SB)
+0x002f 00047 (/home/jiangkai/gopath/src/jiangkai/main3.go:11)   PCDATA  $2, $1
+0x002f 00047 (/home/jiangkai/gopath/src/jiangkai/main3.go:11)   PCDATA  $0, $0
+0x002f 00047 (/home/jiangkai/gopath/src/jiangkai/main3.go:11)   LEAQ    type.int(SB), AX
+0x0036 00054 (/home/jiangkai/gopath/src/jiangkai/main3.go:11)   PCDATA  $2, $0
+0x0036 00054 (/home/jiangkai/gopath/src/jiangkai/main3.go:11)   MOVQ    AX, (SP)
+0x003a 00058 (/home/jiangkai/gopath/src/jiangkai/main3.go:11)   MOVQ    $1, 8(SP)
+0x0043 00067 (/home/jiangkai/gopath/src/jiangkai/main3.go:11)   CALL    runtime.convT2E64(SB) //这里系统调用runtime.convT2E64(SB)就是创建了一个空接口
+0x0048 00072 (/home/jiangkai/gopath/src/jiangkai/main3.go:11)   PCDATA  $2, $1
+0x0048 00072 (/home/jiangkai/gopath/src/jiangkai/main3.go:11)   MOVQ 24(SP), AX
+0x004d 00077 (/home/jiangkai/gopath/src/jiangkai/main3.go:11)   MOVQ 16(SP), CX
+0x0052 00082 (/home/jiangkai/gopath/src/jiangkai/main3.go:12)   PCDATA  $0, $1
+0x0052 00082 (/home/jiangkai/gopath/src/jiangkai/main3.go:12)   MOVQ    CX, reflect.i+48(SP)
+0x0057 00087 (/home/jiangkai/gopath/src/jiangkai/main3.go:12)   MOVQ    AX, reflect.i+56(SP)
+```
+```
+package main
+import (
+    "fmt"
+)
+type Facer struct {
+    Num int
+}
+type iFacer interface {
+    Get()
+}
+func (f Facer) Get() {
+    fmt.Println("facer num: ", f.Num)
+}
+func main() {
+    var facer Facer = Facer{
+        Num: 1,
+    }
+    var ifacer iFacer
+    ifacer = facer
+    ifacer.Get()
+}
+```
+go build -gcflags -S code.go生成对应汇编
+```
+0x001d 00029 (/home/jiangkai/gopath/src/jiangkai/main3.go:19)   FUNCDATA    $0, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)
+0x001d 00029 (/home/jiangkai/gopath/src/jiangkai/main3.go:19)   FUNCDATA    $1, gclocals·33cdeccccebe80329f1fdbee7f5874cb(SB)
+0x001d 00029 (/home/jiangkai/gopath/src/jiangkai/main3.go:19)   FUNCDATA    $3, gclocals·1cf923758aae2e428391d1783fe59973(SB)
+0x001d 00029 (/home/jiangkai/gopath/src/jiangkai/main3.go:24)   PCDATA  $2, $1
+0x001d 00029 (/home/jiangkai/gopath/src/jiangkai/main3.go:24)   PCDATA  $0, $0
+0x001d 00029 (/home/jiangkai/gopath/src/jiangkai/main3.go:24)   LEAQ    go.itab."".Facer,"".iFacer(SB), AX
+0x0024 00036 (/home/jiangkai/gopath/src/jiangkai/main3.go:24)   PCDATA  $2, $0
+0x0024 00036 (/home/jiangkai/gopath/src/jiangkai/main3.go:24)   MOVQ    AX, (SP)
+0x0028 00040 (/home/jiangkai/gopath/src/jiangkai/main3.go:24)   MOVQ    $1, 8(SP)
+0x0031 00049 (/home/jiangkai/gopath/src/jiangkai/main3.go:24)   CALL    runtime.convT2I64(SB) //这里系统调用runtime.convT2I64(SB)就是创建了一个非空接口
+0x0036 00054 (/home/jiangkai/gopath/src/jiangkai/main3.go:24)   MOVQ 16(SP), AX
+0x003b 00059 (/home/jiangkai/gopath/src/jiangkai/main3.go:24)   PCDATA  $2, $2
+0x003b 00059 (/home/jiangkai/gopath/src/jiangkai/main3.go:24)   MOVQ 24(SP), CX
+0x0040 00064 (/home/jiangkai/gopath/src/jiangkai/main3.go:25)   MOVQ 24(AX), AX
+0x0044 00068 (/home/jiangkai/gopath/src/jiangkai/main3.go:25)   PCDATA  $2, $0
+```
+###空接口与nil
+空接口（interface{}）不包含任何的method，正因为如此，所有的类型都实现了interface{}。interface{}对于描述起不到任何的作用，因为它不包含任何的method，但是interface{}在我们需要存储任意类型的数值的时候相当有用，因为它可以存储任意类型的数值。类似于C语言的void*类型。
+Go语言中的nil在概念上和其它语言的null、None、nil、NULL一样，都指代零值或空值。nil是预先说明的标识符，也即通常意义上的关键字。nil只能赋值给指针、channel、func、interface、map或slice类型的变量。如果未遵循这个规则，则会引发panic。
+由上可知，在底层，interface作为两个成员来实现，一个类型(type)和一个值(data)。type用于存储变量的动态类型，data用于存储变量的具体数据。
+```
+package main
+import (
+    "fmt"
+    "reflect"
+)
+func main() {
+    var val interface{} = int64(58)
+    fmt.Println(reflect.TypeOf(val))
+    val = int32(50)
+    fmt.Println(reflect.TypeOf(val))
+}
+//Output:
+int64
+int32
+```
+在上面的例子中，第一条打印语句输出的是：int64。这是因为已经显示的将类型为int64的数据58赋值给了interface类型的变量val，所以val的底层结构应该是：(int64, 58)。我们暂且用这种二元组的方式来描述，二元组的第一个成员为type，第二个成员为data。第二条打印语句输出的是：int32，这是因为再次将类型为int32的数据50赋值给了interface类型的变量val，所以这个时候val的底层结构就变成了：(int32, 50)。
+接口只有在内部值和类型都未设置时才为(nil, nil)。若我们在一个接口值中存储一个 *int 类型的空指针，则内部类型将为 *int，无论该指针的值是什么：(*int, nil)。接口值都会是非 nil 的，即使在该指针的内部为 nil。
+```
+package main
+import (
+    "fmt"
+    "reflect"
+)
+func main() {
+    var val interface{} = nil
+    fmt.Println(reflect.TypeOf(val))
+    if val == nil {
+        fmt.Println("val is nil")
+    } else {
+        fmt.Println("val is not nil")
+    }
+}
+//Output:
+<nil>
+val is nil
+```
+由于nil是untyped(无类型)，而又将nil赋值给了变量val，所以val实际上存储的是(nil, nil)。因此很容易就知道val和nil的相等比较是为true的。
+进一步验证：
+```
+package main
+import (
+    "fmt"
+    "reflect"
+)
+func main() {
+    var val interface{} = (*interface{})(nil)
+    fmt.Println(reflect.TypeOf(val))
+    if val == nil {
+        fmt.Println("val is nil")
+    } else {
+        fmt.Println("val is not nil")
+    }
+}
+//Output:
+*interface {}
+val is not nil
+```
+(*interface{})(nil)是将nil转成interface类型的指针，其实得到的结果仅仅是空接口类型指针并且它指向无效的地址。也就是空接口类型指针而不是空指针，这两者的区别蛮大的。
+对于(*int)(nil)、(*byte)(nil)等等来说是一样的。上面的代码定义了接口指针类型变量val，它指向无效的地址，因此val持有无效的数据。但它是有类型的(*interface{})。所以val的底层结构应该是：(*interface{}, nil)。
+go语言中error也是一个interface类型，早期版本中，go语言的标准错误返回方式就存在一个问题，error返回值总是不为nil，详细说明参见：Why is my nil error value not equal to nil?
+
+##接口变量类型断言
+接口的变量里面可以存储任意类型的数值(该类型实现了某interface)。那么我们怎么反向知道这个变量里面实际保存了的是哪个类型的对象呢？目前常用的有两种方法：
+####comma-ok断言
+value, ok = element.(T)，这里value就是变量的值，ok是一个bool类型，element是interface变量，T是断言的类型。如果element里面确实存储了T类型的数值，那么ok返回true，否则返回false。
+####switch测试
+```
+switch value := element.(type) {
+    case int:
+        fmt.Printf("list[%d] is an int and its value is %d\n", index, value)
+    case string:
+         fmt.Printf("list[%d] is a string and its value is %s\n", index, value)
+    ...
+```
+**注意：element.(type)语法不能在switch外的任何逻辑里面使用，如果你要在switch外面判断一个类型就使用comma-ok**
