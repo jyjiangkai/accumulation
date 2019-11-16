@@ -1,0 +1,66 @@
+##不要在for-range 循环中使用一个值去改变自身的值
+一般形式为：
+```
+for ix, val := range coll { }
+```
+要注意的是，val 始终为集合中对应索引的值拷贝，因此它一般只具有只读性质，对它所做的任何修改都不会影响到集合中原有的值。
+
+##不要使用new() 一个map，一直使用make
+如果你错误的使用 new() 分配了一个引用对象，你会获得一个空引用的指针，相当于声明了一个未初始化的变量并且取了它的地址
+```
+mapCreated := new(map[string]float32)
+```
+接下来当我们调用：mapCreated["key1"] = 4.5 的时候，编译器会报错：invalid operation: mapCreated["key1"] (index of type *map[string]float32)
+
+##当误用字符串
+当需要对一个字符串进行频繁的操作时，在go语言中字符串是不可变的，使用诸如 a += b 形式连接字符串效率低下，尤其在一个循环内部使用这种形式。这会导致大量的内存开销和拷贝。建议将字符串内容写入一个缓存中。例如以下的代码示例：
+```
+var b bytes.Buffer
+...
+for condition {
+    b.WriteString(str) // 将字符串str写入缓存buffer
+}
+return b.String()
+```
+
+##不需要将一个指向切片的指针传递给函数
+我们已经知道，切片实际上就是一个指向潜在数组的指针。
+因此应该这样做：
+```
+func findBiggest( listOfNumbers []int ) int {}
+```
+而不是：
+```
+func findBiggest( listOfNumbers *[]int ) int {}
+```
+
+##使用指针指向接口类型
+```
+package main
+import (
+    "fmt"
+)
+
+type nexter interface {
+    next() byte
+}
+
+func nextFew2(n *nexter, num int) []byte {
+    var b []byte
+    for i:=0; i < num; i++ {
+        b[i] = n.next() // 编译错误:n.next未定义（*nexter类型没有next成员或next方法）
+    }
+    return b
+}
+
+func main() {
+    fmt.Println(“Hello World!”)
+}
+```
+永远不要使用一个指针指向一个接口类型，因为它已经是一个指针。
+
+##出于性能考虑建议使用带缓存的通道
+使用带缓存的通道可以很轻易成倍提高它的吞吐量，某些场景其性能可以提高至10倍甚至更多。通过调整通道的容量，甚至可以尝试着更进一步的优化其性能。
+
+##限制一个通道的数据数量并将它们封装成一个数组
+如果使用通道传递大量单独的数据，那么通道将变成性能瓶颈。然而，将数据块打包封装成数组，在接收端解压数据时，性能可以提高至10倍
