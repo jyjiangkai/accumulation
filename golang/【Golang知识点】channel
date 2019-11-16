@@ -1,0 +1,413 @@
+##前言
+本文主要介绍cgolang是如何实现channel对象， channel的创建，发送，接收和关闭的，尤其是如何解决channel阻塞问题的，最后介绍select的底层是如何实现channel选择执行的。
+如果对于channel的基本知识不太了解，请参考https://golang.org/ref/spec和相关电子书籍。
+
+##channel简介
+Go语言的并发模型是基于CSP的， Golang从CSP中吸收了Process/Channel（对应到语言中的 goroutine/channel）。
+我们今天暂时不讨论goroutinue，这个在后面会有大量的章节来讨论，我们主要来讨论channel对象的底层数据结构和使用规范。
+```
+Do not communicate by sharing memory; instead, share memory by communicating. 
+```
+这是Go语言的并发哲学。
+下面就来详细了解一下golang是如何实现channel这个对象，并且如何实现goroutine之间的数据通信的。
+
+##channel的基本使用
+`var ch chan int` //声明一个int类型的channel，注意，该语句仅声明，不初始化channel
+`ch := make(chan int)` //创建一个无缓冲的int型的channel，无缓冲的channel当放入1个元素后，后续的输入便会阻塞
+`ch := make(chan int, 10)` //创建一个缓冲区大小为10的int型的channel
+`ch <- x` //将x发送到channel中，如果channel缓冲区满，则阻塞当前goroutine
+`<- ch` //从channel中接收一个值，如果缓冲区为空，则阻塞
+`x = <- ch` //从channel中接收一个值并存到x中，如果缓冲区为空，则阻塞
+`x, ok = <- ch` //从channel中接收一个值，如果channel关闭了，那么ok为false（在没有defaultselect语句的前提下），在channel未关闭且为空的情况下，会阻塞
+`close(ch)` //关闭channel
+`for item := range ch {}` //等待并取出channel中的值，直到channel关闭，会阻塞
+
+##无缓冲区的channel
+从无缓存的channel中读取消息会阻塞，直到goroutine向channel中发送消息；同理，向无缓存的channel 中发送消息也会阻塞，直到有goroutine从channel中读取消息。
+
+#有缓冲区的channel
+有缓存的channe 的构造方式为指定make函数的第二个参数，该参数为channel缓存的容量。
+```ch := make(chan int, 10)```
+有缓存的channel实现了一个阻塞队列(采用环形数组实现)。当缓存未满时，向channel中发送消息时不会阻塞，当缓存满时，发送操作将被阻塞，直到有其他goroutine从中读取消息；相应的，当channel中消息不为空时，读取消息不会出现阻塞，当channel为空时，读取操作会造成阻塞，直到有goroutine向channel中写入消息。
+
+##只读/只写的channel
+```
+//定义只读的channel
+read_only := make (<-chan int)
+//定义只写的channel
+write_only := make (chan<- int)
+//可同时读写
+read_write := make (chan int)
+```
+一般来说， 只读或者只写的channel主要用在参数传递上面，比如有一个读取和发送数据的函数，那么在函数参数定义的时候可以限定channel类型，使得权限最小。
+```
+//只能往channel里面写数据
+func send(ch chan<- int) {
+    for i := 0; i < 5; i++ {
+        ch <- i
+    }
+}
+//只能从channel里面读数据
+func recv(ch <-chan int) {
+    for i := range ch {
+        fmt.Println(i)
+    }
+}
+```
+
+##channel的底层实现
+我们知道channel不能new出来，只能make出来，这是因为channel本身数据结构的复杂性。
+我们本次主要重点看一下channel底层是如何实现的。（源码是基于Go 1.10.2）
+
+##channel的数据结构表示
+在src/runtime/chan.go里面定义了channel的数据结构
+```
+type hchan struct {
+    qcount  uint          // total data in the queue： channel的当前元素个数，也就是len方法的结果
+    dataqsiz uint          // size of the circular queue：channel的容量，环形队列的大小，cap方法的结果
+    buf      unsafe.Pointer // points to an array of dataqsiz elements :环形数组实现的缓冲区
+    elemsize uint16  // 每个元素的大小
+    closed  uint32  //标志位，标识是否close
+    elemtype *_type // element type： channel存放元素的类型
+    sendx    uint  // send index： 环形队列中下一次发送元素的索引
+    recvx    uint  // receive index： 环形队列中下一次接收元素的索引
+    recvq    waitq  // list of recv waiters  ： recv的goroutinue的等待队列
+    sendq    waitq  // list of send waiters  ： send的goroutinue的等待队列
+    // lock protects all fields in hchan, as well as several
+    // fields in sudogs blocked on this channel.
+    //
+    // Do not change another G's status while holding this lock
+    // (in particular, do not ready a G), as this can deadlock
+    // with stack shrinking.
+    lock mutex  //互斥量，保证同步安全
+}
+```
+上面就是channel对象的数据结构表示，内部有一个环形队列来存放数据。并且还有两个waitq链表来实现goroutine的等待队列，用来存放哪些goroutine因为send或者recv被阻塞在了这个channel上面：
+```
+type waitq struct {
+    first *sudog
+    last  *sudog
+}
+```
+最后sudog就是对于goroutine中的G的封装, 记录的就是因为channel读写被阻塞的goroutine。
+
+##make channel的实现
+```
+func makechan(t *chantype, size int) *hchan {
+    elem := t.elem
+    ...
+    // Hchan does not contain pointers interesting for GC when elements stored in buf do not contain pointers.
+    // buf points into the same allocation, elemtype is persistent.
+    // SudoG's are referenced from their owning thread so they can't be collected.
+    // TODO(dvyukov,rlh): Rethink when collector can move allocated objects.
+    var c *hchan
+    switch {
+    case size == 0 || elem.size == 0:  //没有缓冲区
+        // Queue or element size is zero.
+        c = (*hchan)(mallocgc(hchanSize, nil, true))
+        // Race detector uses this location for synchronization.
+        c.buf = unsafe.Pointer(c)
+    case elem.kind&kindNoPointers != 0:  //channel不包含指针
+        // Elements do not contain pointers.
+        // Allocate hchan and buf in one call.
+        c = (*hchan)(mallocgc(hchanSize+uintptr(size)*elem.size, nil, true))
+        c.buf = add(unsafe.Pointer(c), hchanSize)
+    default:
+        // Elements contain pointers.
+        c = new(hchan)
+        c.buf = mallocgc(uintptr(size)*elem.size, elem, true)
+    }
+    c.elemsize = uint16(elem.size)
+    c.elemtype = elem
+    c.dataqsiz = uint(size)
+    ...
+    return c
+}
+```
+可以看得出来，make channel里面主要是要申请环形队列的内存块，也就是为什么channel不能用new来实现的原因了。
+并且make channel申请数据的堆内存，所以我们可以直接传递channel对象而不是channel的指针。
+
+##channel的send方法
+从上面的代码可以看到基本发送流程
+1. 获取同步锁，对缓冲队列进行加锁
+2. 如果有等待的goroutinue，那么数据直接发送给这个接收goroutine，数据拷贝1次
+3. 如果缓冲队列没有满，将发送的数据拷贝到队列中，sendx加1
+4. 如果缓冲队列满了，那么将发送goroutine放到发送阻塞队列中
+
+##channel的recv方法
+channel的数据接收和发送比较类似：
+1. 对于队列进行加锁
+2. 如果有send阻塞队列，那么
+（1）如果channel没有缓冲区，那么直接从send goroutine接收数据
+（2）否则从缓冲区队列头取出数据，并且唤醒send开始写入数据到队列尾部
+3. 缓存队列不为空，那么从队列获取数据，数据都是拷贝出来的。
+4. 缓存队列为空，那么将recv goroutine加入到recv阻塞队列中
+
+##关闭channel
+close channel 的工作除了将 ch.closed 设置为1。还需要：
+唤醒 recvq 队列里面的阻塞 goroutine
+唤醒 sendq 队列里面的阻塞 goroutine
+处理方式是分别遍历 recvq 和 sendq 队列，将所有的 goroutine 放到 glist 队列中，最后唤醒 glist 队列中的 goroutine。
+
+##select与channel
+select用于在多个channel上同时进行侦听并收发消息，当任何一个case满足条件时即执行，如果没有可执行的case则会执行default的case，如果没有指定defaultcase，则会阻塞程序，select的语法：
+```
+select {
+  case communication clause :
+      statement(s);   
+  case communication clause :
+      statement(s);
+  /*可以定义任意数量的 case */
+  default : /*可选 */
+      statement(s);
+}
+```
+下面来看一下golang底层是如何实现select和channel的配合的。
+###一个send case + default
+对于这种情况，chan.go源码中是如下实现：
+```
+// compiler implements
+//
+//    select {
+//    case c <- v:
+//        ... foo
+//    default:
+//        ... bar
+//    }
+//
+// as
+//
+//    if selectnbsend(c, v) {
+//        ... foo
+//    } else {
+//        ... bar
+//    }
+//
+func selectnbsend(c *hchan, elem unsafe.Pointer) (selected bool) {
+    return chansend(c, elem, false, getcallerpc())
+}
+```
+###一个recv case + default
+```
+// compiler implements
+//
+//    select {
+//    case v = <-c:
+//        ... foo
+//    default:
+//        ... bar
+//    }
+//
+// as
+//
+//    if selectnbrecv(&v, c) {
+//        ... foo
+//    } else {
+//        ... bar
+//    }
+//
+func selectnbrecv(elem unsafe.Pointer, c *hchan) (selected bool) {
+    selected, _ = chanrecv(c, elem, false)
+    return
+}
+```
+###带有ok结果的recv + default
+```
+// compiler implements
+//
+//    select {
+//    case v, ok = <-c:
+//        ... foo
+//    default:
+//        ... bar
+//    }
+//
+// as
+//
+//    if c != nil && selectnbrecv2(&v, &ok, c) {
+//        ... foo
+//    } else {
+//        ... bar
+//    }
+//
+func selectnbrecv2(elem unsafe.Pointer, received *bool, c *hchan) (selected bool) {
+    // TODO(khr): just return 2 values from this function, now that it is in Go.
+    selected, *received = chanrecv(c, elem, false)
+    return
+}
+```
+###多种case + default混合
+如果下面这种多个case混合的代码，那么select是如何工作的呢？
+```
+func main() {
+    var ch chan int
+    var ch2 chan int
+    //省略初始化channel
+    select {
+    case <-ch:
+    case v, _ := <-ch2:
+        fmt.Println(v)
+    case ch <- 1:
+    default:
+    }
+}
+```
+我们通过go build -gcflags -S helloworld.go 2> helloworld.s来反汇编上面的代码，可以看到下面的代码。
+```
+0x0084 00132 (helloworld.go:11)    CALL    runtime.newselect(SB)
+0x0089 00137 (helloworld.go:12)    LEAQ    ""..autotmp_8+88(SP), AX
+0x008e 00142 (helloworld.go:12)    MOVQ    AX, (SP)
+0x0092 00146 (helloworld.go:12)    XORPS    X1, X1
+0x0095 00149 (helloworld.go:12)    MOVUPS    X1, 8(SP)
+0x009a 00154 (helloworld.go:12)    MOVQ    $0, 24(SP)
+0x00a3 00163 (helloworld.go:12)    PCDATA    $0, $1
+0x00a3 00163 (helloworld.go:12)    CALL    runtime.selectrecv(SB)
+0x00a8 00168 (helloworld.go:13)    LEAQ    ""..autotmp_8+88(SP), AX
+0x00ad 00173 (helloworld.go:13)    MOVQ    AX, (SP)
+0x00b1 00177 (helloworld.go:13)    MOVQ    $0, 8(SP)
+0x00ba 00186 (helloworld.go:13)    LEAQ    ""..autotmp_3+64(SP), CX
+0x00bf 00191 (helloworld.go:13)    MOVQ    CX, 16(SP)
+0x00c4 00196 (helloworld.go:13)    MOVQ    $0, 24(SP)
+0x00cd 00205 (helloworld.go:13)    PCDATA    $0, $1
+0x00cd 00205 (helloworld.go:13)    CALL    runtime.selectrecv(SB)
+0x00d2 00210 (helloworld.go:15)    LEAQ    ""..autotmp_8+88(SP), AX
+0x00d7 00215 (helloworld.go:15)    MOVQ    AX, (SP)
+0x00db 00219 (helloworld.go:15)    MOVQ    $0, 8(SP)
+0x00e4 00228 (helloworld.go:15)    LEAQ    ""..autotmp_7+48(SP), CX
+0x00e9 00233 (helloworld.go:15)    MOVQ    CX, 16(SP)
+0x00ee 00238 (helloworld.go:15)    PCDATA    $0, $1
+0x00ee 00238 (helloworld.go:15)    CALL    runtime.selectsend(SB)
+0x00f3 00243 (helloworld.go:16)    LEAQ    ""..autotmp_8+88(SP), AX
+0x00f8 00248 (helloworld.go:16)    MOVQ    AX, (SP)
+0x00fc 00252 (helloworld.go:16)    PCDATA    $0, $1
+0x00fc 00252 (helloworld.go:16)    CALL    runtime.selectdefault(SB)
+0x0101 00257 (helloworld.go:11)    LEAQ    ""..autotmp_8+88(SP), AX
+0x0106 00262 (helloworld.go:11)    MOVQ    AX, (SP)
+0x010a 00266 (helloworld.go:11)    PCDATA    $0, $1
+0x010a 00266 (helloworld.go:11)    CALL    runtime.selectgo(SB)
+0x010f 00271 (helloworld.go:11)    MOVQ    8(SP), AX
+0x0114 00276 (helloworld.go:12)    TESTQ    AX, AX
+```
+其中下面这几行就是关键：
+```
+0x0084 00132 (helloworld.go:11)    CALL    runtime.newselect(SB)
+0x00a3 00163 (helloworld.go:12)    CALL    runtime.selectrecv(SB)
+0x00cd 00205 (helloworld.go:13)    CALL    runtime.selectrecv(SB)
+0x00ee 00238 (helloworld.go:15)    CALL    runtime.selectsend(SB)
+0x00fc 00252 (helloworld.go:16)    CALL    runtime.selectdefault(SB)
+0x010a 00266 (helloworld.go:11)    CALL    runtime.selectgo(SB)
+```
+我们在src\runtime\select.go下面可以找到selectgo方法，这个是select的调度方法：
+```
+func selectgo(sel *hselect) int {
+    ...
+    loop:
+    // pass 1 - look for something already waiting
+    var dfli int
+    var dfl *scase
+    var casi int
+    var cas *scase
+    for i := 0; i < int(sel.ncase); i++ {
+        casi = int(pollorder[i])
+        cas = &scases[casi]
+        c = cas.c
+        switch cas.kind {
+        case caseNil:
+            continue
+        //接收数据
+        case caseRecv:
+            sg = c.sendq.dequeue()
+            //如果有发送goroutine阻塞，那么就接收数据
+            if sg != nil {
+                goto recv
+            }
+            //如果缓冲队列里面有数据，接收数据
+            if c.qcount > 0 {
+                goto bufrecv
+            }
+            //如果channel是关闭的
+            if c.closed != 0 {
+                goto rclose
+            }
+        case caseSend:
+            if raceenabled {
+                racereadpc(unsafe.Pointer(c), cas.pc, chansendpc)
+            }
+            if c.closed != 0 {
+                goto sclose
+            }
+            //如果有接收goroutine阻塞，那么就发送数据
+            sg = c.recvq.dequeue()
+            if sg != nil {
+                goto send
+            }
+            //如果缓冲区不为空，那么发送数据
+            if c.qcount < c.dataqsiz {
+                goto bufsend
+            }
+            //default分支
+        case caseDefault:
+            dfli = casi
+            dfl = cas
+        }
+    }
+}
+```
+其他的selectsend， selectrecv， selectdefault都是增加select的scases，将分支加入到调度列表中去。
+```
+func newselect(sel *hselect, selsize int64, size int32) {
+    if selsize != int64(selectsize(uintptr(size))) {
+        print("runtime: bad select size ", selsize, ", want ", selectsize(uintptr(size)), "\n")
+        throw("bad select size")
+    }
+    sel.tcase = uint16(size)
+    sel.ncase = 0
+    sel.lockorder = (*uint16)(add(unsafe.Pointer(&sel.scase), uintptr(size)*unsafe.Sizeof(hselect{}.scase[0])))
+    sel.pollorder = (*uint16)(add(unsafe.Pointer(sel.lockorder), uintptr(size)*unsafe.Sizeof(*hselect{}.lockorder)))
+}
+func selectsend(sel *hselect, c *hchan, elem unsafe.Pointer) {
+    pc := getcallerpc()
+    i := sel.ncase
+    if i >= sel.tcase {
+        throw("selectsend: too many cases")
+    }
+    sel.ncase = i + 1
+    if c == nil {
+        return
+    }
+    cas := (*scase)(add(unsafe.Pointer(&sel.scase), uintptr(i)*unsafe.Sizeof(sel.scase[0])))
+    cas.pc = pc
+    cas.c = c
+    cas.kind = caseSend
+    cas.elem = elem
+    if debugSelect {
+        print("selectsend s=", sel, " pc=", hex(cas.pc), " chan=", cas.c, "\n")
+    }
+}
+```
+select有自己的数据结构，包括hselect和scase，这里就不详细展开select的内部实现原理的，我们只要理解下面几点：
+如果select下面只有default语句，或者只有一个case+defaut语句，编译器会重新生成一些代码，简单处理这种情况。
+selectgo函数是执行case语句的方法，主要按照下面的步骤来实施
+evaluate all the involved channels and values
+permuting the cases slice elements (randomize)
+ordering elements according to cases hchan address
+locking all the channels
+starting to loop…
+1. checking if a channel is already waiting, so we can use it immediately (and it’s done)
+2. otherwise, enqueuing on all channels (and sleep)
+3. waiting for another goroutine to wake us up
+4. another goroutine wake us up (done = 1)
+5. dequeuing of all the other channels
+  (1). if we were waken up by a channel close operation, return to a.
+  (2). else, we’re done :)
+
+##发送和接收的阻塞
+我们从前面可以看到，如果发送的时候，接收端没有准备好，或者缓冲区队列是满的，那么就会将当前的goroutine阻塞，然后等待唤醒。 这个主要是涉及到了goroutine的底层模型以及调度机制，这里主要简单描述一下channel对象中sudog对象是如何工作的。
+这个需要大家好好体会一下goroutine和channel是如何实现这个思想的，并且从分析源码中，我们可以看到使用channel对象的一些常见问题：
+给一个nil channel发送数据，造成永远阻塞
+从一个nil channel接收数据，造成永远阻塞
+给一个已经关闭的channel发送数据，引起panic
+从一个已经关闭的channel接收数据，立即返回一个零值
+关闭已经已经关闭的channel，引起panic
+关闭一个nil channel，引起panic
+
