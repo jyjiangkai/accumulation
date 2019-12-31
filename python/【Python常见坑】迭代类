@@ -1,0 +1,74 @@
+##迭代类
+有时候我们写python单元测试用例时，需要构造指定的数据类型，如果该数据是可迭代的，则我们可以使用list，可是如果该数据既是可迭代的又是具有属性的，
+这时候我们就要用到我们的迭代类了。
+
+代码如下：
+```
+  def get_devices(self):
+      usb_infos = {}
+
+      def get_usb_type(usb_device):
+          return usb_device.id
+          
+      # Get usb info from pyusb
+      for u in usb.core.find(find_all=True):
+          for config in u:
+              for i in config:
+                  if i.num == 8:
+                      ret = get_usb_type(u)
+                      ...
+```
+这时候我们就想将usb.core.find(find_all=True)的返回值mock为我们指定的数据，而需要模拟的数据就既是可迭代的又是具有属性的。则可以按照如下方式进行构造：
+```
+class TestUsbDevice(object):
+    def __init__(self, end):
+        self.start_next = 0
+        self.start_iter = 0
+        self.end = end
+
+        self.id = 1
+        self.num = 2
+        
+    def __next__(self):
+        if self.start_next < self.end:
+            self.start_next += 1
+            return self
+        else:
+            raise StopIteration
+
+    def __iter__(self):
+        if self.start_iter < self.end:
+            self.start_iter += 1
+            return self
+        else:
+            raise StopIteration
+```
+end表示该迭代类最多可以迭代几层，可以自己推出，避免死循环。
+
+但是实际测试的时候发现，mock出来的迭代类数据有问题，在容器里执行的时候，mock出来的TestUsbDevice报错不支持迭代，而在本机直接执行则没有问题，
+报错信息如下：
+```
+Captured traceback:
+~~~~~~~~~~~~~~~~~~~
+    Traceback (most recent call last):
+      File "/opt/esdm/.tox/py27/lib/python2.7/site-packages/mock/mock.py", line 1305, in patched
+        return func(*args, **keywargs)
+      File "esdm/tests/unit/device/test_usb.py", line 143, in test_get_devices
+        u.get_devices()
+      File "esdm/device/device_usb.py", line 154, in get_devices
+        for u in usb.core.find(find_all=True):
+    TypeError: iter() returned non-iterator of type 'TestUsbDevice'
+```
+最终对比两个环境发现差异如下：
+容器里面是python2.7的版本，而本机是python3.7的版本，怀疑可能和python版本有关系，google错误信息结论如下：
+```
+The __iter__ method of a class should always return an iterator.
+
+Iterators must implement both __next__ and __iter__ for Python 3, or both next and __iter__ for Python 2. 
+The __iter__ method of the iterator must return the iterator object itself.
+```
+也就是说在python2环境中，应该使用next()方法，而在python3环境中，应该使用__next__()方法，修改后测试发现问题解决。
+google搜索链接如下：
+```
+https://help.semmle.com/wiki/display/PYTHON/__iter__+method+returns+a+non-iterator
+```
