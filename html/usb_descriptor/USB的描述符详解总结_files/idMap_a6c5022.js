@@ -1,0 +1,1 @@
+define("wkcommon:widget/ui/lib/ad/idMap.js",function(e,o,t){t.exports={VIEW:[{slotid:"46",datakey:"wkhomepagetopic"},{slotid:"53",datakey:"wkhomepagetopic"}],DOWNLOADSUCCESS:[{slotid:"48",datakey:"wkhomepagetopic"},{slotid:"54",datakey:"wkhomepagetopic"}],SEARCHRESULT:[{slotid:"47",datakey:"wkhomepagetopic"}]}});
